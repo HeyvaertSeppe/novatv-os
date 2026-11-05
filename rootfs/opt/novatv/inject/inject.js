@@ -65,6 +65,17 @@
     return svg;
   }
 
+  // clear focus ring so you can see where the remote is (many sites hide it)
+  function focusRing() {
+    try {
+      const sheet = new CSSStyleSheet();
+      sheet.replaceSync(':focus-visible{outline:3px solid rgba(255,255,255,.92)!important;outline-offset:3px!important;' +
+        'box-shadow:0 0 0 6px rgba(124,140,255,.45)!important;border-radius:6px}');
+      document.adoptedStyleSheets = [...document.adoptedStyleSheets, sheet];
+    } catch (e) { /* very old page APIs: skip */ }
+  }
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', focusRing); else focusRing();
+
   window.__novatv = {
     hud(kind, value) {
       if (!ensure()) return;

@@ -1,0 +1,951 @@
+[
+ {
+  "id": "netflix",
+  "name": "Netflix",
+  "url": "https://www.netflix.com/browse",
+  "regions": [
+   "INT"
+  ],
+  "ua": "chromeos",
+  "tagline": "Series, films and documentaries",
+  "c1": "#e50914",
+  "c2": "#1a0002",
+  "label": "Netflix",
+  "fg": "#ffffff",
+  "back": "smart",
+  "icon": "/shared/logos/netflix.png"
+ },
+ {
+  "id": "prime",
+  "name": "Prime Video",
+  "url": "https://www.primevideo.com",
+  "regions": [
+   "INT"
+  ],
+  "ua": "chromeos",
+  "tagline": "Amazon Originals and blockbuster films",
+  "c1": "#0578ff",
+  "c2": "#021a3d",
+  "label": "Prime Video",
+  "fg": "#ffffff",
+  "back": "smart",
+  "icon": "/shared/logos/prime.png"
+ },
+ {
+  "id": "youtube",
+  "name": "YouTube",
+  "url": "https://www.youtube.com/tv",
+  "regions": [
+   "INT"
+  ],
+  "ua": "smarttv",
+  "back": "escape",
+  "tagline": "The TV interface, made for the remote",
+  "c1": "#ff0033",
+  "c2": "#2b0008",
+  "label": "YouTube",
+  "fg": "#ffffff",
+  "icon": "/shared/logos/youtube.png"
+ },
+ {
+  "id": "disney",
+  "name": "Disney+",
+  "url": "https://www.disneyplus.com",
+  "regions": [
+   "INT"
+  ],
+  "ua": "chromeos",
+  "tagline": "Disney, Pixar, Marvel, Star Wars, National Geographic",
+  "c1": "#1aa3b5",
+  "c2": "#04212e",
+  "label": "Disney+",
+  "fg": "#ffffff",
+  "back": "smart",
+  "icon": "/shared/logos/disney.png"
+ },
+ {
+  "id": "hbomax",
+  "name": "HBO Max",
+  "url": "https://play.hbomax.com/",
+  "regions": [
+   "INT"
+  ],
+  "ua": "chromeos",
+  "tagline": "HBO, Warner Bros. and DC",
+  "c1": "#7d8cff",
+  "c2": "#05060f",
+  "label": "HBO Max",
+  "fg": "#ffffff",
+  "back": "smart",
+  "icon": "/shared/logos/hbomax.png"
+ },
+ {
+  "id": "appletv",
+  "name": "Apple TV",
+  "url": "https://tv.apple.com",
+  "regions": [
+   "INT"
+  ],
+  "ua": "chromeos",
+  "tagline": "Apple Originals",
+  "c1": "#9a9aa6",
+  "c2": "#0d0d10",
+  "label": "Apple TV",
+  "fg": "#ffffff",
+  "back": "smart",
+  "icon": "/shared/logos/appletv.png"
+ },
+ {
+  "id": "paramount",
+  "name": "Paramount+",
+  "url": "https://www.paramountplus.com",
+  "regions": [
+   "US",
+   "GB",
+   "DE"
+  ],
+  "ua": "chromeos",
+  "tagline": "Paramount, CBS, Nickelodeon",
+  "c1": "#0064ff",
+  "c2": "#00133a",
+  "label": "Paramount+",
+  "fg": "#ffffff",
+  "back": "smart",
+  "icon": "/shared/logos/paramount.png"
+ },
+ {
+  "id": "skyshowtime",
+  "name": "SkyShowtime",
+  "url": "https://www.skyshowtime.com",
+  "regions": [
+   "NL"
+  ],
+  "ua": "chromeos",
+  "tagline": "Universal, Paramount, Sky and Showtime",
+  "c1": "#5b6cff",
+  "c2": "#0a0c2e",
+  "label": "SkyShowtime",
+  "fg": "#ffffff",
+  "back": "smart",
+  "icon": "/shared/logos/skyshowtime.png"
+ },
+ {
+  "id": "dazn",
+  "name": "DAZN",
+  "url": "https://www.dazn.com",
+  "regions": [
+   "INT",
+   "DE"
+  ],
+  "ua": "chromeos",
+  "tagline": "Live sport",
+  "c1": "#f7ff1a",
+  "c2": "#111111",
+  "label": "DAZN",
+  "fg": "#ffffff",
+  "back": "smart",
+  "icon": "/shared/logos/dazn.png"
+ },
+ {
+  "id": "spotify",
+  "name": "Spotify",
+  "url": "https://open.spotify.com/",
+  "regions": [
+   "INT"
+  ],
+  "tagline": "Music and podcasts",
+  "c1": "#1ed760",
+  "c2": "#03140a",
+  "label": "Spotify",
+  "fg": "#ffffff",
+  "ua": "default",
+  "back": "smart",
+  "icon": "/shared/logos/spotify.png"
+ },
+ {
+  "id": "twitch",
+  "name": "Twitch",
+  "url": "https://www.twitch.tv",
+  "regions": [
+   "INT"
+  ],
+  "tagline": "Live streams and gaming",
+  "c1": "#9146ff",
+  "c2": "#1a0b36",
+  "label": "Twitch",
+  "fg": "#ffffff",
+  "ua": "default",
+  "back": "smart",
+  "icon": "/shared/logos/twitch.png"
+ },
+ {
+  "id": "crunchyroll",
+  "name": "Crunchyroll",
+  "url": "https://www.crunchyroll.com",
+  "regions": [
+   "INT"
+  ],
+  "ua": "chromeos",
+  "tagline": "Anime",
+  "c1": "#ff640a",
+  "c2": "#3a1400",
+  "label": "Crunchyroll",
+  "fg": "#ffffff",
+  "back": "smart",
+  "icon": "/shared/logos/crunchyroll.png"
+ },
+ {
+  "id": "plex",
+  "name": "Plex",
+  "url": "https://app.plex.tv",
+  "regions": [
+   "INT"
+  ],
+  "tagline": "Your own media and free movies",
+  "c1": "#e5a00d",
+  "c2": "#1f1a0c",
+  "label": "Plex",
+  "fg": "#ffffff",
+  "ua": "default",
+  "back": "smart",
+  "icon": "/shared/logos/plex.png"
+ },
+ {
+  "id": "telenet",
+  "name": "Telenet TV",
+  "url": "https://www.telenet.tv/",
+  "regions": [
+   "BE"
+  ],
+  "tagline": "Live TV, replay and on demand",
+  "c1": "#ffd400",
+  "c2": "#141400",
+  "label": "Telenet TV",
+  "fg": "#ffffff",
+  "ua": "default",
+  "back": "smart",
+  "icon": "/shared/logos/telenet.png"
+ },
+ {
+  "id": "vtmgo",
+  "name": "VTM GO",
+  "url": "https://www.vtmgo.be/",
+  "regions": [
+   "BE"
+  ],
+  "tagline": "Live VTM channels and Flemish series",
+  "c1": "#c63bff",
+  "c2": "#1c0a26",
+  "label": "VTM GO",
+  "fg": "#ffffff",
+  "ua": "default",
+  "back": "smart",
+  "icon": "/shared/logos/vtmgo.png"
+ },
+ {
+  "id": "vrtmax",
+  "name": "VRT MAX",
+  "url": "https://www.vrt.be/vrtmax/",
+  "regions": [
+   "BE"
+  ],
+  "tagline": "Eén, Canvas, Ketnet and more",
+  "c1": "#ff4d55",
+  "c2": "#3a0a0e",
+  "label": "VRT MAX",
+  "fg": "#ffffff",
+  "ua": "default",
+  "back": "smart",
+  "icon": "/shared/logos/vrtmax.png"
+ },
+ {
+  "id": "streamz",
+  "name": "Streamz",
+  "url": "https://www.streamz.be/",
+  "regions": [
+   "BE"
+  ],
+  "tagline": "Flemish fiction and international hits",
+  "c1": "#ff5a36",
+  "c2": "#08091f",
+  "label": "Streamz",
+  "fg": "#ffffff",
+  "ua": "default",
+  "back": "smart",
+  "icon": "/shared/logos/streamz.png"
+ },
+ {
+  "id": "playtv",
+  "name": "Play",
+  "url": "https://www.play.tv/",
+  "regions": [
+   "BE"
+  ],
+  "tagline": "Play4, Play5, Play6, Play7 (formerly GoPlay)",
+  "c1": "#ff4553",
+  "c2": "#3d0a10",
+  "label": "Play",
+  "fg": "#ffffff",
+  "ua": "default",
+  "back": "smart",
+  "icon": "/shared/logos/playtv.png"
+ },
+ {
+  "id": "pickx",
+  "name": "Pickx",
+  "url": "https://www.pickx.be",
+  "regions": [
+   "BE"
+  ],
+  "tagline": "Proximus TV everywhere",
+  "c1": "#5c2d91",
+  "c2": "#170a28",
+  "label": "Pickx",
+  "fg": "#ffffff",
+  "ua": "default",
+  "back": "smart",
+  "icon": "/shared/logos/pickx.png"
+ },
+ {
+  "id": "auvio",
+  "name": "RTBF Auvio",
+  "url": "https://auvio.rtbf.be",
+  "regions": [
+   "BE"
+  ],
+  "tagline": "La Une, Tipik, La Trois",
+  "c1": "#ff3c3c",
+  "c2": "#2a0606",
+  "label": "RTBF Auvio",
+  "fg": "#ffffff",
+  "ua": "default",
+  "back": "smart",
+  "icon": "/shared/logos/auvio.png"
+ },
+ {
+  "id": "rtlplay",
+  "name": "RTLplay",
+  "url": "https://www.rtlplay.be",
+  "regions": [
+   "BE"
+  ],
+  "tagline": "RTL-TVI, Club RTL, Plug RTL",
+  "c1": "#ff2a2a",
+  "c2": "#24070a",
+  "label": "RTLplay",
+  "fg": "#ffffff",
+  "ua": "default",
+  "back": "smart",
+  "icon": "/shared/logos/rtlplay.png"
+ },
+ {
+  "id": "basetv",
+  "name": "BASE TV",
+  "url": "https://www.base.tv/",
+  "regions": [
+   "BE"
+  ],
+  "tagline": "Live TV and replay from BASE",
+  "c1": "#00c88c",
+  "c2": "#002a1e",
+  "label": "BASE TV",
+  "fg": "#ffffff",
+  "ua": "default",
+  "back": "smart",
+  "icon": "/shared/logos/basetv.png"
+ },
+ {
+  "id": "npo",
+  "name": "NPO Start",
+  "url": "https://npo.nl/start",
+  "regions": [
+   "NL"
+  ],
+  "tagline": "NPO 1, 2 and 3",
+  "c1": "#ff6d00",
+  "c2": "#2a1200",
+  "label": "NPO Start",
+  "fg": "#ffffff",
+  "ua": "default",
+  "back": "smart",
+  "icon": "/shared/logos/npo.png"
+ },
+ {
+  "id": "videoland",
+  "name": "Videoland",
+  "url": "https://v2.videoland.com",
+  "regions": [
+   "NL"
+  ],
+  "tagline": "RTL series, films and live TV",
+  "c1": "#e2001a",
+  "c2": "#250004",
+  "label": "Videoland",
+  "fg": "#ffffff",
+  "ua": "default",
+  "back": "smart",
+  "icon": "/shared/logos/videoland.png"
+ },
+ {
+  "id": "ziggo",
+  "name": "Ziggo GO",
+  "url": "https://www.ziggogo.tv",
+  "regions": [
+   "NL"
+  ],
+  "tagline": "Ziggo TV everywhere",
+  "c1": "#f48c00",
+  "c2": "#2a1700",
+  "label": "Ziggo GO",
+  "fg": "#ffffff",
+  "ua": "default",
+  "back": "smart",
+  "icon": "/shared/logos/ziggo.png"
+ },
+ {
+  "id": "kpn",
+  "name": "KPN TV+",
+  "url": "https://tv.kpn.com",
+  "regions": [
+   "NL"
+  ],
+  "tagline": "KPN TV everywhere",
+  "c1": "#00c300",
+  "c2": "#002900",
+  "label": "KPN TV+",
+  "fg": "#ffffff",
+  "ua": "default",
+  "back": "smart",
+  "icon": "/shared/logos/kpn.png"
+ },
+ {
+  "id": "nlziet",
+  "name": "NLZIET",
+  "url": "https://app.nlziet.nl",
+  "regions": [
+   "NL"
+  ],
+  "tagline": "All Dutch channels in one place",
+  "c1": "#ff2e63",
+  "c2": "#2b0611",
+  "label": "NLZIET",
+  "fg": "#ffffff",
+  "ua": "default",
+  "back": "smart",
+  "icon": "/shared/logos/nlziet.png"
+ },
+ {
+  "id": "kijk",
+  "name": "KIJK",
+  "url": "https://www.kijk.nl",
+  "regions": [
+   "NL"
+  ],
+  "tagline": "SBS6, Veronica, NET5",
+  "c1": "#00a3ff",
+  "c2": "#001b2b",
+  "label": "KIJK",
+  "fg": "#ffffff",
+  "ua": "default",
+  "back": "smart",
+  "icon": "/shared/logos/kijk.png"
+ },
+ {
+  "id": "pathe",
+  "name": "Pathé Thuis",
+  "url": "https://www.pathe-thuis.nl",
+  "regions": [
+   "NL"
+  ],
+  "tagline": "Rent and buy films",
+  "c1": "#ffc300",
+  "c2": "#2a2000",
+  "label": "Pathé Thuis",
+  "fg": "#ffffff",
+  "ua": "default",
+  "back": "smart",
+  "icon": "/shared/logos/pathe.png"
+ },
+ {
+  "id": "hulu",
+  "name": "Hulu",
+  "url": "https://www.hulu.com",
+  "regions": [
+   "US"
+  ],
+  "ua": "chromeos",
+  "tagline": "TV series, films and live TV",
+  "c1": "#1ce783",
+  "c2": "#04241a",
+  "label": "Hulu",
+  "fg": "#ffffff",
+  "back": "smart",
+  "icon": "/shared/logos/hulu.png"
+ },
+ {
+  "id": "peacock",
+  "name": "Peacock",
+  "url": "https://www.peacocktv.com",
+  "regions": [
+   "US"
+  ],
+  "ua": "chromeos",
+  "tagline": "NBC, Bravo and live sport",
+  "c1": "#6e55ff",
+  "c2": "#0b0a1e",
+  "label": "Peacock",
+  "fg": "#ffffff",
+  "back": "smart",
+  "icon": "/shared/logos/peacock.png"
+ },
+ {
+  "id": "youtubetv",
+  "name": "YouTube TV",
+  "url": "https://tv.youtube.com",
+  "regions": [
+   "US"
+  ],
+  "ua": "chromeos",
+  "tagline": "Live TV from 100+ channels",
+  "c1": "#ff0033",
+  "c2": "#2b0008",
+  "label": "YouTube TV",
+  "fg": "#ffffff",
+  "back": "smart",
+  "icon": "/shared/logos/youtubetv.png"
+ },
+ {
+  "id": "sling",
+  "name": "Sling TV",
+  "url": "https://watch.sling.com",
+  "regions": [
+   "US"
+  ],
+  "ua": "chromeos",
+  "tagline": "Live TV, your way",
+  "c1": "#0f9cff",
+  "c2": "#021a2e",
+  "label": "Sling TV",
+  "fg": "#ffffff",
+  "back": "smart",
+  "icon": "/shared/logos/sling.png"
+ },
+ {
+  "id": "fubo",
+  "name": "Fubo",
+  "url": "https://www.fubo.tv",
+  "regions": [
+   "US"
+  ],
+  "ua": "chromeos",
+  "tagline": "Live sport and TV",
+  "c1": "#ff4b1f",
+  "c2": "#2a0c04",
+  "label": "Fubo",
+  "fg": "#ffffff",
+  "back": "smart",
+  "icon": "/shared/logos/fubo.png"
+ },
+ {
+  "id": "tubi",
+  "name": "Tubi",
+  "url": "https://tubitv.com",
+  "regions": [
+   "US"
+  ],
+  "tagline": "Free films and TV",
+  "c1": "#7408ff",
+  "c2": "#14022d",
+  "label": "Tubi",
+  "fg": "#ffffff",
+  "ua": "default",
+  "back": "smart",
+  "icon": "/shared/logos/tubi.png"
+ },
+ {
+  "id": "plutotv",
+  "name": "Pluto TV",
+  "url": "https://pluto.tv",
+  "regions": [
+   "US",
+   "DE"
+  ],
+  "tagline": "Free live TV channels",
+  "c1": "#fff200",
+  "c2": "#1f1d00",
+  "label": "Pluto TV",
+  "fg": "#ffffff",
+  "ua": "default",
+  "back": "smart",
+  "icon": "/shared/logos/plutotv.png"
+ },
+ {
+  "id": "iplayer",
+  "name": "BBC iPlayer",
+  "url": "https://www.bbc.co.uk/iplayer",
+  "regions": [
+   "GB"
+  ],
+  "tagline": "BBC One, Two, Three and Four",
+  "c1": "#ff4c98",
+  "c2": "#2a0a1a",
+  "label": "BBC iPlayer",
+  "fg": "#ffffff",
+  "ua": "default",
+  "back": "smart",
+  "icon": "/shared/logos/iplayer.png"
+ },
+ {
+  "id": "itvx",
+  "name": "ITVX",
+  "url": "https://www.itv.com",
+  "regions": [
+   "GB"
+  ],
+  "tagline": "ITV1, ITV2 and boxsets",
+  "c1": "#00e0b8",
+  "c2": "#00241e",
+  "label": "ITVX",
+  "fg": "#ffffff",
+  "ua": "default",
+  "back": "smart",
+  "icon": "/shared/logos/itvx.png"
+ },
+ {
+  "id": "channel4",
+  "name": "Channel 4",
+  "url": "https://www.channel4.com",
+  "regions": [
+   "GB"
+  ],
+  "tagline": "Channel 4, E4 and More4",
+  "c1": "#a6ff00",
+  "c2": "#1a2600",
+  "label": "Channel 4",
+  "fg": "#ffffff",
+  "ua": "default",
+  "back": "smart",
+  "icon": "/shared/logos/channel4.png"
+ },
+ {
+  "id": "channel5",
+  "name": "5",
+  "url": "https://www.channel5.com",
+  "regions": [
+   "GB"
+  ],
+  "tagline": "Channel 5 shows on demand",
+  "c1": "#ff2d6f",
+  "c2": "#2a0712",
+  "label": "5",
+  "fg": "#ffffff",
+  "ua": "default",
+  "back": "smart",
+  "icon": "/shared/logos/channel5.png"
+ },
+ {
+  "id": "nowtv",
+  "name": "NOW",
+  "url": "https://www.nowtv.com/watch",
+  "regions": [
+   "GB"
+  ],
+  "ua": "chromeos",
+  "tagline": "Sky entertainment, cinema and sport",
+  "c1": "#00c2a8",
+  "c2": "#001f1b",
+  "label": "NOW",
+  "fg": "#ffffff",
+  "back": "smart",
+  "icon": "/shared/logos/nowtv.png"
+ },
+ {
+  "id": "uktvplay",
+  "name": "U",
+  "url": "https://u.co.uk",
+  "regions": [
+   "GB"
+  ],
+  "tagline": "Dave, Gold, W and more",
+  "c1": "#ffd000",
+  "c2": "#262000",
+  "label": "U",
+  "fg": "#ffffff",
+  "ua": "default",
+  "back": "smart",
+  "icon": "/shared/logos/uktvplay.png"
+ },
+ {
+  "id": "ard",
+  "name": "ARD Mediathek",
+  "url": "https://www.ardmediathek.de",
+  "regions": [
+   "DE"
+  ],
+  "tagline": "Das Erste and ARD channels",
+  "c1": "#0067e6",
+  "c2": "#001630",
+  "label": "ARD Mediathek",
+  "fg": "#ffffff",
+  "ua": "default",
+  "back": "smart",
+  "icon": "/shared/logos/ard.png"
+ },
+ {
+  "id": "zdf",
+  "name": "ZDF",
+  "url": "https://www.zdf.de",
+  "regions": [
+   "DE"
+  ],
+  "tagline": "ZDF Mediathek",
+  "c1": "#ff8a00",
+  "c2": "#2a1700",
+  "label": "ZDF",
+  "fg": "#ffffff",
+  "ua": "default",
+  "back": "smart",
+  "icon": "/shared/logos/zdf.png"
+ },
+ {
+  "id": "joyn",
+  "name": "Joyn",
+  "url": "https://www.joyn.de",
+  "regions": [
+   "DE"
+  ],
+  "tagline": "ProSieben, Sat.1 and more",
+  "c1": "#c43cff",
+  "c2": "#1d0727",
+  "label": "Joyn",
+  "fg": "#ffffff",
+  "ua": "default",
+  "back": "smart",
+  "icon": "/shared/logos/joyn.png"
+ },
+ {
+  "id": "rtlplus",
+  "name": "RTL+",
+  "url": "https://plus.rtl.de",
+  "regions": [
+   "DE"
+  ],
+  "tagline": "RTL, VOX and more",
+  "c1": "#ff1e3c",
+  "c2": "#26050a",
+  "label": "RTL+",
+  "fg": "#ffffff",
+  "ua": "default",
+  "back": "smart",
+  "icon": "/shared/logos/rtlplus.png"
+ },
+ {
+  "id": "wow",
+  "name": "WOW",
+  "url": "https://www.wowtv.de",
+  "regions": [
+   "DE"
+  ],
+  "ua": "chromeos",
+  "tagline": "Sky series, films and sport",
+  "c1": "#7b2bff",
+  "c2": "#14062b",
+  "label": "WOW",
+  "fg": "#ffffff",
+  "back": "smart",
+  "icon": "/shared/logos/wow.png"
+ },
+ {
+  "id": "magenta",
+  "name": "MagentaTV",
+  "url": "https://web.magentatv.de",
+  "regions": [
+   "DE"
+  ],
+  "tagline": "Telekom TV everywhere",
+  "c1": "#e20074",
+  "c2": "#2a0016",
+  "label": "MagentaTV",
+  "fg": "#ffffff",
+  "ua": "default",
+  "back": "smart",
+  "icon": "/shared/logos/magenta.png"
+ },
+ {
+  "id": "waipu",
+  "name": "waipu.tv",
+  "url": "https://play.waipu.tv",
+  "regions": [
+   "DE"
+  ],
+  "tagline": "Live TV over the internet",
+  "c1": "#ffc800",
+  "c2": "#262000",
+  "label": "waipu.tv",
+  "fg": "#ffffff",
+  "ua": "default",
+  "back": "smart",
+  "icon": "/shared/logos/waipu.png"
+ },
+ {
+  "id": "zattoo",
+  "name": "Zattoo",
+  "url": "https://zattoo.com",
+  "regions": [
+   "DE"
+  ],
+  "tagline": "Live TV streaming",
+  "c1": "#ff6a00",
+  "c2": "#2a1200",
+  "label": "Zattoo",
+  "fg": "#ffffff",
+  "ua": "default",
+  "back": "smart",
+  "icon": "/shared/logos/zattoo.png"
+ },
+ {
+  "id": "arte",
+  "name": "ARTE",
+  "url": "https://www.arte.tv",
+  "regions": [
+   "DE",
+   "FR"
+  ],
+  "tagline": "European culture",
+  "c1": "#ff5f1f",
+  "c2": "#2a1006",
+  "label": "ARTE",
+  "fg": "#ffffff",
+  "ua": "default",
+  "back": "smart",
+  "icon": "/shared/logos/arte.png"
+ },
+ {
+  "id": "francetv",
+  "name": "france.tv",
+  "url": "https://www.france.tv",
+  "regions": [
+   "FR"
+  ],
+  "tagline": "France 2, France 3, France 5",
+  "c1": "#3c73ff",
+  "c2": "#060f2e",
+  "label": "france.tv",
+  "fg": "#ffffff",
+  "ua": "default",
+  "back": "smart",
+  "icon": "/shared/logos/francetv.png"
+ },
+ {
+  "id": "tf1",
+  "name": "TF1+",
+  "url": "https://www.tf1.fr",
+  "regions": [
+   "FR"
+  ],
+  "tagline": "TF1, TMC, TFX",
+  "c1": "#1f4cff",
+  "c2": "#050c2e",
+  "label": "TF1+",
+  "fg": "#ffffff",
+  "ua": "default",
+  "back": "smart",
+  "icon": "/shared/logos/tf1.png"
+ },
+ {
+  "id": "m6",
+  "name": "M6+",
+  "url": "https://www.m6.fr",
+  "regions": [
+   "FR"
+  ],
+  "tagline": "M6, W9, 6ter",
+  "c1": "#ff2a2a",
+  "c2": "#2a0505",
+  "label": "M6+",
+  "fg": "#ffffff",
+  "ua": "default",
+  "back": "smart",
+  "icon": "/shared/logos/m6.png"
+ },
+ {
+  "id": "canalplus",
+  "name": "CANAL+",
+  "url": "https://www.canalplus.com",
+  "regions": [
+   "FR"
+  ],
+  "ua": "chromeos",
+  "tagline": "Films, series and sport",
+  "c1": "#8a8a8a",
+  "c2": "#0a0a0a",
+  "label": "CANAL+",
+  "fg": "#ffffff",
+  "back": "smart",
+  "icon": "/shared/logos/canalplus.png"
+ },
+ {
+  "id": "molotov",
+  "name": "Molotov",
+  "url": "https://app.molotov.tv",
+  "regions": [
+   "FR"
+  ],
+  "tagline": "French live TV",
+  "c1": "#ff3c64",
+  "c2": "#2a0710",
+  "label": "Molotov",
+  "fg": "#ffffff",
+  "ua": "default",
+  "back": "smart",
+  "icon": "/shared/logos/molotov.png"
+ },
+ {
+  "id": "rmcbfm",
+  "name": "RMC+",
+  "url": "https://www.rmcbfmplay.com",
+  "regions": [
+   "FR"
+  ],
+  "tagline": "RMC and BFM: sport, news, documentaries",
+  "c1": "#ffc600",
+  "c2": "#262000",
+  "label": "RMC+",
+  "fg": "#ffffff",
+  "ua": "default",
+  "back": "smart",
+  "icon": "/shared/logos/rmcbfm.png"
+ },
+ {
+  "id": "adn",
+  "name": "ADN",
+  "url": "https://animationdigitalnetwork.com",
+  "regions": [
+   "FR"
+  ],
+  "tagline": "Anime Digital Network",
+  "c1": "#0096ff",
+  "c2": "#001a2e",
+  "label": "ADN",
+  "fg": "#ffffff",
+  "ua": "default",
+  "back": "smart",
+  "icon": "/shared/logos/adn.png"
+ },
+ {
+  "id": "browser",
+  "name": "Browser",
+  "url": "https://duckduckgo.com/",
+  "regions": [
+   "INT"
+  ],
+  "tagline": "Open any website",
+  "icon": "globe",
+  "c1": "#3a3a46",
+  "c2": "#121218",
+  "label": "Browser",
+  "fg": "#ffffff",
+  "ua": "default",
+  "back": "smart"
+ }
+]

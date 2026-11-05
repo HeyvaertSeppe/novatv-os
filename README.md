@@ -55,8 +55,21 @@ a Wayland kiosk compositor.
 - **Screen saver**: a large clock with seconds and the date, on a very dark, slowly moving
   gradient or plain black (*Settings → Screen Saver → Style*). It drifts slightly every minute
   to protect OLED screens.
-- Default apps: Netflix, Prime Video, Disney+, Telenet TV, VTM GO, VRT MAX, Streamz, Play,
-  YouTube (TV interface), HBO Max, Spotify, Browser.
+- **App Library with 59 services and real logos**, grouped by country: Belgium (Telenet TV, BASE TV,
+  VTM GO, VRT MAX, Streamz, Play, Pickx, RTBF Auvio, RTLplay), the Netherlands (NPO Start, Videoland,
+  Ziggo GO, KPN TV+, NLZIET, KIJK, SkyShowtime, Pathé), the US (Hulu, Peacock, YouTube TV, Sling, Fubo,
+  Tubi, Pluto TV, Paramount+), the UK (BBC iPlayer, ITVX, Channel 4, 5, NOW, U), Germany (ARD, ZDF,
+  Joyn, RTL+, WOW, MagentaTV, waipu.tv, Zattoo, DAZN), France (france.tv, TF1+, M6+, CANAL+, Molotov,
+  ARTE, RMC+, ADN) and international (Netflix, Prime Video, Disney+, HBO Max, Apple TV, Spotify, Twitch…).
+  The Home Screen starts with Netflix, Prime Video and YouTube; add more with the **+ Add Apps** tile.
+- **Edit the Home Screen on the TV**: press **Play/Pause** on a tile to move it or take it off.
+- **Any website as an app**: *Add Apps → + Website* on the TV, or *Apps → Add App* on the phone.
+  The tile shows the name, or a logo you pick from your phone and position/resize.
+- Apps open fullscreen without any browser bar. Arrow keys move between links and buttons on every
+  site, with a clear focus ring, so websites work with the TV remote like apps.
+- **On-screen keyboard** (Apple style) whenever you need to type: in setup, settings and inside apps
+  (search, logins). Use the remote arrows and OK; Back closes it; the remote's number buttons type
+  digits. You can also type on the phone remote's keyboard.
 - Settings on the TV: Wi-Fi, keyboard layout, screen saver, apps kept in background,
   restart, shut down, about.
 

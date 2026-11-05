@@ -16,7 +16,8 @@ OUT = ROOT / "rootfs" / "opt" / "novatv" / "web" / "shared" / "logos"
 W, H = 640, 384
 
 # some App Store artwork has a rounded frame baked in: crop it off (pixels on a 512 icon)
-CROP = {"hbomax": 44, "netflix": 44, "spotify": 44, "playtv": 40}
+CROP = {"hbomax": 44, "netflix": 44, "spotify": 44, "playtv": 40, "appletv": 44, "arte": 44, "fubo": 44,
+        "iplayer": 44, "itvx": 44, "joyn": 44, "npo": 44, "sling": 64, "tubi": 44, "francetv": 48, "canalplus": 48, "molotov": 48}
 # icons whose logo touches the edge: use a solid tile in the icon's main colour instead of stretched edges
 SOLID = {"playtv"}
 # logo size inside the tile (1.0 = icon fills the tile height)

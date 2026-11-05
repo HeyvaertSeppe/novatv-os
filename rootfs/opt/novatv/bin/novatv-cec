@@ -31,6 +31,7 @@ UI_CODES = {
     0x44: "playpause", 0x45: "playpause", 0x46: "playpause", 0x60: "playpause", 0x61: "playpause",
     0x48: "left", 0x49: "right",          # rewind / fast forward seek in most players
     0x91: "back",                          # "Back" on some newer remotes
+    **{0x20 + d: str(d) for d in range(10)},   # number buttons type digits
 }
 
 

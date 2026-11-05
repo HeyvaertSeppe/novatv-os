@@ -52,7 +52,7 @@ function setFocus(e, dir) {
     void e.offsetWidth;
     e.classList.add(`tilt-${dir}`);
   }
-  const box = e.closest('.list, .set-list');
+  const box = e.closest('.list, .set-list, .lib-scroll');
   if (box) {
     const top = e.offsetTop - box.clientHeight / 2 + e.offsetHeight / 2;
     box.scrollTo({ top, behavior: prev && dir ? 'smooth' : 'auto' });
@@ -113,6 +113,7 @@ function input(k) {
   if (S.screen === 'eq' && S.eqAdjust && eqAdjustKey(k)) return;
   if (['up', 'down', 'left', 'right'].includes(k)) { move(k); return; }
   if (k === 'select') { activate(); return; }
+  if (k === 'menu') { if (S.screen === 'home' && S.focus && S.focus.classList.contains('tile')) tileMenu(S.focus.dataset.id); else activate(); return; }
   if (k === 'back') { back(); }
 }
 
@@ -120,6 +121,7 @@ function back() {
   if (!$('#alert').classList.contains('hidden')) { closeAlert(); return; }
   if (S.screen === 'settings') { settingsBack(); return; }
   if (S.screen === 'eq') { closeEq(); return; }
+  if (S.screen === 'library') { showHome(); return; }
   if (S.screen === 'setup') { setupBack(); return; }
   if (S.screen === 'home') {
     if (!$('#pair-card').classList.contains('hidden')) { hidePairCard(); return; }
@@ -143,8 +145,8 @@ document.addEventListener('keydown', (e) => {
   } else if (k === 'Escape' || k === 'BrowserBack' || k === 'GoBack' || (k === 'Backspace' && !inInput)) {
     e.preventDefault();
     input('back');
-  } else if (k === 'MediaPlayPause' || k === 'MediaPlay') {
-    input('select');
+  } else if (k === 'MediaPlayPause' || k === 'MediaPlay' || k === 'ContextMenu') {
+    input('menu');
   } else if (k === 'BrowserHome' || (k === 'Home' && !inInput)) {
     input('home');
   } else if (S.saver) {
@@ -206,13 +208,13 @@ function onMessage(m) {
       S.info.active_app = m.active_app;
       updateStatus();
       break;
-    case 'apps': S.apps = m.apps; renderHome(); if (S.screen === 'settings') renderSettings(); break;
+    case 'apps': S.apps = m.apps; renderHome(); if (S.screen === 'settings') renderSettings(); if (S.screen === 'library') markLibrary(); break;
     case 'settings': S.settings = m.settings; updateStatus(); tick(); break;
     case 'paircode': refreshInfo().then(refreshQR); break;
     case 'remote_connected': onRemoteConnected(); break;
     case 'launching': playLaunch(m.id); break;
     case 'home': goHome(); break;
-    case 'open': if (m.screen === 'settings') openSettings(); break;
+    case 'open': if (m.screen === 'settings') openSettings(); else if (m.screen === 'library') openLibrary(); break;
     case 'key': input(m.k); break;
     case 'display': { const { t, ...d } = m; S.display = d; closeAlertIf('display'); refreshAudioViews(); break; }
     case 'display_confirm': confirmDisplay(m.label, m.seconds); break;
@@ -312,7 +314,7 @@ function showHome(entering) {
 }
 
 function setScreen(name) {
-  for (const s of ['home', 'settings', 'setup', 'eq']) $(`#${s}`).classList.toggle('hidden', s !== name);
+  for (const s of ['home', 'settings', 'setup', 'eq', 'library']) $(`#${s}`).classList.toggle('hidden', s !== name);
   S.screen = name;
 }
 
@@ -328,7 +330,7 @@ function goHome() {
 function launch(id) {
   const app = S.apps.find((a) => a.id === id);
   if (!app) return;
-  if (app.type === 'system') { openSettings(); return; }
+  if (app.type === 'system') { if (id === 'library') openLibrary(); else openSettings(); return; }
   send({ t: 'launch', id });
 }
 
@@ -1265,4 +1267,120 @@ async function setCec(body) {
   try { S.cec = await api('/api/cec', body); } catch (e) { toast('Could not change this'); }
   setTimeout(async () => { try { S.cec = await api('/api/cec'); if (S.stack[S.stack.length - 1] === 'cec') renderSettings(true); } catch (e) { /* ignore */ } }, 4000);
   if (S.stack[S.stack.length - 1] === 'cec') renderSettings(true);
+}
+
+/* ================================================================ app library + home screen editing */
+async function openLibrary() {
+  setScreen('library');
+  const lib = $('#library');
+  lib.classList.remove('enter'); void lib.offsetWidth; lib.classList.add('enter');
+  try { S.catalog = await api('/api/catalog'); } catch (e) { S.catalog = { regions: [], apps: [] }; }
+  S.libRegion = S.libRegion || 'INT';
+  renderLibrary();
+}
+
+function renderLibrary(keepRegionFocus) {
+  const c = S.catalog;
+  const rg = $('#lib-regions');
+  rg.innerHTML = '';
+  c.regions.forEach((r) => {
+    const n = c.apps.filter((a) => a.regions.includes(r.code)).length;
+    const chip = el('div', `chip${r.code === S.libRegion ? ' sel' : ''}`, `${esc(r.name)} <span style="opacity:.5">${n}</span>`, () => {
+      S.libRegion = r.code; renderLibrary(true);
+    });
+    chip.dataset.region = r.code;
+    rg.appendChild(chip);
+  });
+  const web = el('div', 'chip add-web', `${I.plus}<span>Website</span>`, () => addWebsitePrompt());
+  web.dataset.region = 'web';
+  rg.appendChild(web);
+  const grid = $('#lib-grid');
+  grid.innerHTML = '';
+  c.apps.filter((a) => a.regions.includes(S.libRegion)).forEach((a) => {
+    const t = el('div', 'ltile', `<div class="face">${tileFace(a)}</div><div class="nm">${esc(a.name)}</div><div class="badge"></div>`, () => toggleLibraryApp(a, t));
+    t.dataset.id = a.id;
+    grid.appendChild(t);
+  });
+  markLibrary();
+  $('#lib-scroll').scrollTop = 0;
+  if (keepRegionFocus) setFocus($(`#lib-regions .chip[data-region="${S.libRegion}"]`));
+  else setFocus($('#lib-grid .ltile') || $('#lib-regions .chip'));
+}
+
+const isOnHome = (id) => S.apps.some((a) => a.id === id);
+
+function markLibrary() {
+  $$('#lib-grid .ltile').forEach((t) => {
+    const on = isOnHome(t.dataset.id);
+    t.classList.toggle('added', on);
+    $('.badge', t).innerHTML = on ? I.check : I.plus;
+  });
+}
+
+async function toggleLibraryApp(a, tile) {
+  const add = !isOnHome(a.id);
+  tile.classList.remove('pop'); void tile.offsetWidth; tile.classList.add('pop');
+  try {
+    await api('/api/catalog', { id: a.id, add });
+    toast(add ? `${a.name} added to Home` : `${a.name} taken off Home`, add);
+  } catch (e) { toast('Could not change the Home Screen'); }
+}
+
+function tileMenu(id) {
+  const app = S.apps.find((a) => a.id === id);
+  if (!app) return;
+  const tile = $(`#grid .tile[data-id="${CSS.escape(id)}"]`);
+  if (tile) tile.classList.add('wiggle');
+  const ids = S.apps.map((a) => a.id);
+  const i = ids.indexOf(id);
+  const move = async (d) => {
+    const j = i + d;
+    if (j < 0 || j >= ids.length) return;
+    [ids[i], ids[j]] = [ids[j], ids[i]];
+    await api('/api/apps/order', { ids });
+    setTimeout(() => { const t = $(`#grid .tile[data-id="${CSS.escape(id)}"]`); if (t) setFocus(t); }, 60);
+  };
+  const buttons = [
+    { label: 'Move Left', act: () => move(-1) },
+    { label: 'Move Right', act: () => move(1) },
+  ];
+  if (app.type !== 'system') {
+    buttons.push({ label: 'Take Off Home Screen', danger: true,
+      act: () => api(`/api/apps/${encodeURIComponent(id)}`, undefined, 'DELETE').then(() => toast(`${app.name} taken off Home`)) });
+  }
+  buttons.push({ label: 'Cancel' });
+  alertBox(app.name, app.type === 'system' ? '' : 'You can add it back any time from Add Apps.', buttons);
+  const stop = () => { const t = $(`#grid .tile[data-id="${CSS.escape(id)}"]`); if (t) t.classList.remove('wiggle'); };
+  const obs = new MutationObserver(() => { if ($('#alert').classList.contains('hidden')) { stop(); obs.disconnect(); } });
+  obs.observe($('#alert'), { attributes: true, attributeFilter: ['class'] });
+}
+
+/* add any website as an app (text tile; a logo can be added from the phone) */
+const WEB_COLORS = [['#3a3a46', '#121218'], ['#1a98ff', '#0b2a4a'], ['#7b2cff', '#1d0550'], ['#ff2d55', '#4a0716'], ['#00c2c7', '#003c40'], ['#ff5a1f', '#4a1300']];
+function addWebsitePrompt() {
+  S.alertPrev = S.focus;
+  const a = $('#alert');
+  a.innerHTML = '';
+  const box = el('div', 'alert-box', '<h2>Add a Website</h2><p>It opens fullscreen like an app. Add a logo later from the phone remote.</p>');
+  const url = field('Web address, e.g. vrt.be/vrtnws', '', { enter: () => setFocus(name) });
+  url.classList.add('default');
+  $('input', url).type = 'url';
+  const name = field('Name on the tile', '', { enter: () => save() });
+  const save = async () => {
+    let u = $('input', url).value.trim();
+    if (!u) { setFocus(url); return; }
+    let n = $('input', name).value.trim();
+    if (!n) { try { n = new URL(/^https?:/.test(u) ? u : `https://${u}`).hostname.replace(/^www\./, '').split('.')[0]; n = n.charAt(0).toUpperCase() + n.slice(1); } catch (e) { n = 'Website'; } }
+    const [c1, c2] = WEB_COLORS[Math.floor(Math.random() * WEB_COLORS.length)];
+    closeAlert(true);
+    try { await api('/api/apps', { name: n, url: u, label: n, c1, c2, fg: '#ffffff' }); toast(`${n} added to Home`, true); } catch (e) { toast('Could not add this website'); }
+    setFocus($('#lib-regions .add-web'));
+  };
+  box.appendChild(url);
+  box.appendChild(name);
+  box.appendChild(el('div', 'btn', 'Add to Home', save));
+  box.appendChild(el('div', 'btn', 'Cancel', () => closeAlert()));
+  a.appendChild(box);
+  a.classList.remove('hidden');
+  focusFirst(a);
 }

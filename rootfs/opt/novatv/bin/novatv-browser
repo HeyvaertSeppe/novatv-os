@@ -33,6 +33,7 @@ exec "$CHROME" \
   --disable-pinch \
   --overscroll-history-navigation=0 \
   --autoplay-policy=no-user-gesture-required \
+  --enable-spatial-navigation \
   --password-store=basic \
   --check-for-update-interval=31536000 \
   --simulate-outdated-no-au='Tue, 31 Dec 2099 23:59:59 GMT' \

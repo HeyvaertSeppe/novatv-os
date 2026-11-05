@@ -84,6 +84,7 @@ KEYS = {
     "space": (" ", "Space", 32, " "), "tab": ("Tab", "Tab", 9, ""),
     "pageup": ("PageUp", "PageUp", 33, ""), "pagedown": ("PageDown", "PageDown", 34, ""),
     "f": ("f", "KeyF", 70, "f"),
+    **{str(d): (str(d), f"Digit{d}", 48 + d, str(d)) for d in range(10)},
     "mediaplaypause": ("MediaPlayPause", "MediaPlayPause", 179, ""),
 }
 
@@ -179,6 +180,13 @@ class State:
         tmp.write_text(json.dumps({"apps": self.apps, "settings": self.settings}, indent=2))
         tmp.replace(self.path)
 
+    @staticmethod
+    def catalog():
+        try:
+            return json.loads((HOME / "server" / "catalog.json").read_text())
+        except (OSError, json.JSONDecodeError):
+            return []
+
     def app(self, app_id):
         return next((a for a in self.apps if a["id"] == app_id), None)
 
@@ -206,7 +214,8 @@ class Browser:
         self.version = "156.0.0.0"
         self.pointer = {}       # targetId -> [x, y]
         self.connected = asyncio.Event()
-        self.inject_js = (HOME / "inject" / "inject.js").read_text()
+        # on-screen keyboard + pointer/volume overlay, injected into every app
+        self.inject_js = (HOME / "web" / "shared" / "osk.js").read_text() + "\n" + (HOME / "inject" / "inject.js").read_text()
 
     @property
     def ok(self):
@@ -477,6 +486,11 @@ class Browser:
         if self.active == self.launcher:
             await self.press("escape")
             return
+        try:   # an open on-screen keyboard closes first
+            if await self.evaluate("!!(window.__novaOSK && window.__novaOSK.back())"):
+                return
+        except Exception:  # noqa: BLE001
+            pass
         app = self.srv.state.app(self.active_app or "") or {}
         mode = app.get("back", "smart")
         if mode == "escape":
@@ -496,7 +510,7 @@ class Browser:
 
     async def play_pause(self):
         if self.active == self.launcher:
-            await self.press("select")
+            await self.press("mediaplaypause")
             return
         done = await self.evaluate("""(()=>{const v=[...document.querySelectorAll('video')]
             .filter(v=>v.readyState>0).sort((a,b)=>b.clientWidth-a.clientWidth)[0];
@@ -681,7 +695,7 @@ class Server:
                 else:
                     await self.broadcast({"t": "key", "k": "back"}, role="tv")
             elif k == "playpause":
-                await (b.play_pause() if b.ok else self.broadcast({"t": "key", "k": "select"}, role="tv"))
+                await (b.play_pause() if b.ok else self.broadcast({"t": "key", "k": "menu"}, role="tv"))
             elif k in ("volup", "voldown", "mute"):
                 await self.audio.change_volume(k)
             elif k in KEYS:
@@ -823,6 +837,50 @@ class Server:
         self.state.save()
         await self.broadcast({"t": "apps", "apps": self.state.apps})
         return web.json_response(self.state.apps)
+
+    REGIONS = [("INT", "Popular"), ("BE", "Belgium"), ("NL", "Netherlands"), ("US", "United States"),
+               ("GB", "United Kingdom"), ("DE", "Germany"), ("FR", "France")]
+
+    async def h_catalog(self, req):
+        self.require_auth(req)
+        home = {a["id"] for a in self.state.apps}
+        return web.json_response({"regions": [{"code": c, "name": n} for c, n in self.REGIONS],
+                                  "apps": [dict(a, on_home=a["id"] in home) for a in self.state.catalog()]})
+
+    async def h_catalog_toggle(self, req):
+        """Add a catalog app to the Home Screen, or remove it."""
+        self.require_auth(req)
+        body = await req.json()
+        app_id, add = str(body.get("id", "")), bool(body.get("add", True))
+        entry = next((a for a in self.state.catalog() if a["id"] == app_id), None)
+        if not entry:
+            raise web.HTTPNotFound()
+        current = self.state.app(app_id)
+        if add and not current:
+            sys_idx = next((i for i, x in enumerate(self.state.apps) if x.get("type") == "system"), len(self.state.apps))
+            self.state.apps.insert(sys_idx, dict(entry))
+        elif not add and current and current.get("type") != "system":
+            self.state.apps.remove(current)
+        self.state.save()
+        await self.broadcast({"t": "apps", "apps": self.state.apps})
+        return web.json_response({"ok": True, "on_home": add})
+
+    async def h_icon_upload(self, req):
+        """Stores a tile logo made on the phone (PNG/JPEG/WebP data URL), returns its URL."""
+        self.require_auth(req)
+        import base64
+        data = str((await req.json()).get("data", ""))
+        m = re.match(r"data:image/(png|jpeg|webp);base64,(.+)$", data, re.S)
+        if not m:
+            raise web.HTTPBadRequest(text="image expected")
+        raw = base64.b64decode(m.group(2), validate=False)
+        if len(raw) > 3 * 1024 * 1024:
+            raise web.HTTPRequestEntityTooLarge(max_size=3 * 1024 * 1024, actual_size=len(raw))
+        icons = STATE_DIR / "icons"
+        icons.mkdir(parents=True, exist_ok=True)
+        name = f"{uuid.uuid4().hex[:12]}.{'jpg' if m.group(1) == 'jpeg' else m.group(1)}"
+        (icons / name).write_bytes(raw)
+        return web.json_response({"url": f"/icons/{name}"})
 
     async def h_launch(self, req):
         self.require_auth(req)
@@ -1251,7 +1309,7 @@ class Server:
         asyncio.create_task(self.bt.start())
 
     def make_app(self):
-        app = web.Application(client_max_size=2 * 1024 * 1024)
+        app = web.Application(client_max_size=6 * 1024 * 1024)
         r = app.router
         r.add_get("/", self.h_root)
         r.add_get("/tv/", self.h_tv)
@@ -1264,6 +1322,9 @@ class Server:
         r.add_post("/api/apps", self.h_app_add)
         r.add_post("/api/apps/order", self.h_app_order)
         r.add_post("/api/apps/reset", self.h_apps_reset)
+        r.add_get("/api/catalog", self.h_catalog)
+        r.add_post("/api/icons", self.h_icon_upload)
+        r.add_post("/api/catalog", self.h_catalog_toggle)
         r.add_put("/api/apps/{id}", self.h_app_edit)
         r.add_delete("/api/apps/{id}", self.h_app_delete)
         r.add_post("/api/launch", self.h_launch)
@@ -1291,6 +1352,8 @@ class Server:
         r.add_static("/tv/", HOME / "web" / "tv")
         r.add_static("/remote/", HOME / "web" / "remote")
         r.add_static("/shared/", HOME / "web" / "shared")
+        (STATE_DIR / "icons").mkdir(parents=True, exist_ok=True)
+        r.add_static("/icons/", STATE_DIR / "icons")
         app.on_startup.append(self.on_startup)
         return app
 

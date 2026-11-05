@@ -478,3 +478,42 @@ body.entering #topshelf { animation: tile-in .8s var(--ease) both; }
 .eq-btns .btn { min-width: 0; padding: 1.8rem 3.4rem; font-size: 2.4rem; }
 .eq-hint { font-size: 2rem; color: var(--fg3); }
 .alert-box .field { width: 100%; margin-top: 1rem; }
+
+/* on-screen keyboard open: lift the content above it */
+#setup-stage, .alert-box { transition: transform .38s cubic-bezier(.2,.9,.25,1.05); }
+html.nova-osk-open #setup-stage { transform: translateY(-27rem); }
+html.nova-osk-open #setup-stage .glyph-big, html.nova-osk-open #setup-stage .lead { opacity: 0; }
+html.nova-osk-open #setup-dots { opacity: 0; }
+html.nova-osk-open .alert-box { transform: translateY(-26rem); }
+
+/* ------------------------------------------------------------------ app library */
+#library { display: flex; flex-direction: column; padding: 6rem 10rem 0; overflow: hidden; }
+#library.enter { animation: fade-in .45s var(--ease); }
+.lib-bg { position: absolute; inset: 0; z-index: -1;
+  background: radial-gradient(70% 60% at 80% 0%, rgba(90,110,255,.18), transparent 70%), radial-gradient(60% 60% at 0% 100%, rgba(255,80,120,.12), transparent 70%), #050507; }
+.lib-title { font-size: 5.6rem; font-weight: 750; letter-spacing: -.035em; }
+.lib-sub { font-size: 2.4rem; color: var(--fg2); margin-top: .6rem; }
+.lib-regions { display: flex; gap: 1.4rem; margin: 3.4rem -2rem 0; padding: 1rem 2rem; flex: none; }
+.lib-regions .chip { font-size: 2.3rem; padding: 1.2rem 2.6rem; transition: transform .3s var(--spring), background .2s, color .2s, box-shadow .2s; }
+.lib-regions .chip.sel { box-shadow: inset 0 0 0 .25rem #7c8cff; color: #fff; }
+.lib-regions .chip.focused { background: #f5f5f7; color: #111; transform: scale(1.08); }
+.lib-scroll { position: relative; flex: 1; overflow: hidden; margin: 2rem -3rem 0; padding: 2rem 3rem 8rem; }
+.lib-grid { display: grid; grid-template-columns: repeat(6, 1fr); gap: 5rem 3.2rem; }
+.ltile { position: relative; border-radius: 1.6rem; transition: transform .35s var(--spring); }
+.ltile .face { position: relative; aspect-ratio: 5 / 3; border-radius: 1.6rem; overflow: hidden; box-shadow: 0 1.2rem 3rem rgba(0,0,0,.5); }
+.ltile .face .tile-face { font-size: 3.4rem; }
+.ltile .nm { margin-top: 1.4rem; font-size: 2rem; font-weight: 600; text-align: center; color: var(--fg2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ltile .badge { position: absolute; top: -1.2rem; right: -1.2rem; width: 4.4rem; height: 4.4rem; border-radius: 50%; display: grid; place-items: center;
+  background: rgba(60,60,70,.95); color: #fff; box-shadow: 0 .6rem 1.6rem rgba(0,0,0,.5); transition: transform .3s var(--spring), background .2s; z-index: 2; }
+.ltile .badge svg { width: 2.4rem; height: 2.4rem; stroke-width: 2.6; }
+.ltile.added .badge { background: var(--ok); }
+.ltile.focused { transform: scale(1.1); z-index: 3; }
+.ltile.focused .nm { color: #fff; }
+.ltile.focused .face { box-shadow: 0 2.4rem 5rem rgba(0,0,0,.6), 0 0 0 .3rem rgba(255,255,255,.85); }
+.ltile.pop .badge { animation: pop .45s var(--spring); }
+.ts-sep { display: inline-block; width: 2.4rem; }
+.tile.wiggle { animation: wiggle .3s ease-in-out infinite alternate; }
+@keyframes wiggle { from { rotate: -1.2deg; } to { rotate: 1.2deg; } }
+
+.lib-regions .add-web { display: flex; align-items: center; gap: 1rem; margin-left: auto; }
+.lib-regions .add-web svg { width: 2.4rem; height: 2.4rem; }

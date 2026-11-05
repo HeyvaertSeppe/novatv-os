@@ -26,7 +26,7 @@
     <div class="ts-kicker" id="ts-kicker"></div>
     <div class="ts-title" id="ts-title"></div>
     <div class="ts-tag" id="ts-tag"></div>
-    <div class="ts-hint"><span class="kbd">OK</span> to open</div>
+    <div class="ts-hint"><span class="kbd">OK</span> to open <span class="ts-sep"></span><span class="kbd">Play/Pause</span> to move or take off</div>
   </div>
   <div id="grid-wrap"><div id="grid"></div></div>
 
@@ -47,6 +47,17 @@
     <div class="set-title" id="set-title">Settings</div>
   </div>
   <div class="set-right"><div class="set-list" id="set-list"></div></div>
+</section>
+
+<!-- ============ APP LIBRARY ============ -->
+<section id="library" class="screen hidden">
+  <div class="lib-bg"></div>
+  <header class="lib-head">
+    <div class="lib-title">App Library</div>
+    <div class="lib-sub">Press OK to add an app to your Home Screen, or to take it off.</div>
+  </header>
+  <div class="lib-regions" id="lib-regions"></div>
+  <div class="lib-scroll" id="lib-scroll"><div class="lib-grid" id="lib-grid"></div></div>
 </section>
 
 <!-- ============ EQUALIZER ============ -->
@@ -106,6 +117,7 @@
 <script src="/shared/icons.js"></script>
 <script src="/shared/tiles.js"></script>
 <script src="/shared/eq.js"></script>
+<script src="/shared/osk.js"></script>
 <script src="/tv/tv.js"></script>
 </body>
 </html>

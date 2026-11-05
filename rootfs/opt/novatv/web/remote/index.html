@@ -75,7 +75,8 @@
       <input id="url-input" type="url" inputmode="url" placeholder="Open a website…" autocapitalize="off" autocomplete="off">
       <button id="url-go" aria-label="Open"></button>
     </div>
-    <div class="section-head"><h2>Apps</h2><button id="edit-toggle" class="link">Edit</button></div>
+    <button class="lib-open" id="lib-open"><span></span><div><b>App Library</b><small>Netflix, VTM GO, BASE TV, BBC iPlayer, TF1+ and 50+ more</small></div></button>
+    <div class="section-head"><h2>Home Screen</h2><button id="edit-toggle" class="link">Edit</button></div>
     <div id="app-grid" class="app-grid"></div>
   </main>
 
@@ -147,12 +148,25 @@
       <div class="sheet-title" id="ed-title">Add App</div>
       <button id="ed-save" class="link bold">Save</button>
     </div>
-    <div class="ed-preview"><div class="ed-tile" id="ed-tile"></div></div>
+    <div class="ed-preview"><div class="ed-tile" id="ed-tile"></div><canvas class="ed-crop hidden" id="ed-crop" width="640" height="384"></canvas></div>
+    <div class="seg" id="ed-mode"><button data-m="name" class="on">Name</button><button data-m="logo">Logo</button></div>
     <div class="form">
       <label>Name<input id="ed-name" placeholder="My App"></label>
       <label>Web address<input id="ed-url" type="url" inputmode="url" autocapitalize="off" placeholder="https://"></label>
-      <label>Tile text<input id="ed-label" placeholder="Shown on the tile"></label>
-      <label>Icon image URL <small>optional</small><input id="ed-icon" type="url" inputmode="url" autocapitalize="off" placeholder="https://…/logo.png"></label>
+      <label class="m-name">Tile text<input id="ed-label" placeholder="Shown on the tile"></label>
+      <div class="m-logo hidden">
+        <input id="ed-file" type="file" accept="image/*" class="hidden">
+        <button id="ed-pick" class="pick">Choose a Logo From Your Phone</button>
+        <div class="crop-tools hidden" id="crop-tools">
+          <div class="lbl">Drag the logo to move it, pinch or use the slider to resize</div>
+          <input id="ed-zoom" type="range" min="10" max="400" value="100">
+          <div class="row2 two">
+            <button id="ed-fit">Fit</button>
+            <button id="ed-fill">Fill</button>
+          </div>
+        </div>
+        <label>Or paste a logo link<input id="ed-icon" type="url" inputmode="url" autocapitalize="off" placeholder="https://…/logo.png"></label>
+      </div>
       <div class="lbl">Colour</div>
       <div class="swatches" id="ed-swatches"></div>
       <div class="row2">
@@ -181,6 +195,16 @@
       </div>
       <button id="ed-delete" class="danger-btn">Delete App</button>
     </div>
+  </div>
+</div>
+
+<!-- app library sheet -->
+<div id="lib-sheet" class="sheet hidden">
+  <div class="sheet-card tall">
+    <div class="sheet-grab"></div>
+    <div class="ed-head"><span></span><div class="sheet-title">App Library</div><button id="lib-done" class="link bold">Done</button></div>
+    <div class="m-presets" id="lib-regions"></div>
+    <div class="group" id="lib-list"></div>
   </div>
 </div>
 

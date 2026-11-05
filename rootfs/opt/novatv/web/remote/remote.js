@@ -65,7 +65,7 @@ function connect() {
     else if (m.t === 'bt') { const { t, ...b } = m; R.bt = b; renderBt(); }
     else if (m.t === 'volume') { R.audio.volume = { level: m.level, muted: m.muted }; if (!A.vdrag) updateVolume(); if ($('#v-remote').offsetParent) toast(m.muted ? 'Muted' : `Volume ${m.level}% · ${m.output || ''}`); }
     else if (m.t === 'state') { R.active = m.active_app; renderNow(); renderApps(); }
-    else if (m.t === 'apps') { R.apps = m.apps; renderApps(); }
+    else if (m.t === 'apps') { R.apps = m.apps; renderApps(); if (LIB && !$('#lib-sheet').classList.contains('hidden')) renderLib(); }
     else if (m.t === 'settings') { R.settings = m.settings; render(); }
     else if (m.t === 'toast') toast(m.text);
   };
@@ -306,6 +306,34 @@ function renderApps() {
   g.appendChild(add);
 }
 
+/* ---------- app library */
+let LIB = null, libRegion = 'INT';
+$('#lib-open span').innerHTML = I.apps;
+$('#lib-open').onclick = async () => {
+  vibe();
+  try { LIB = await api('/api/catalog'); } catch (e) { toast('Could not load the App Library'); return; }
+  $('#lib-sheet').classList.remove('hidden');
+  renderLib();
+};
+$('#lib-done').onclick = () => $('#lib-sheet').classList.add('hidden');
+function renderLib() {
+  const onHome = new Set(R.apps.map((a) => a.id));
+  $('#lib-regions').innerHTML = LIB.regions.map((r) => `<button data-r="${r.code}" class="${r.code === libRegion ? 'sel' : ''}">${esc(r.name)}</button>`).join('');
+  $$('#lib-regions button').forEach((b) => (b.onclick = () => { libRegion = b.dataset.r; renderLib(); }));
+  const list = LIB.apps.filter((a) => a.regions.includes(libRegion));
+  $('#lib-list').innerHTML = list.map((a) => `<button class="item" data-id="${esc(a.id)}"><span class="thumb">${tileFace(a)}</span>
+      <span class="k">${esc(a.name)}<br><span class="badge2">${esc(a.tagline || '')}</span></span>
+      <span class="tog ${onHome.has(a.id) ? 'on' : ''}">${onHome.has(a.id) ? I.check : I.plus}</span></button>`).join('');
+  $$('#lib-list [data-id]').forEach((b) => (b.onclick = async () => {
+    vibe();
+    const id = b.dataset.id, add = !R.apps.some((a) => a.id === id);
+    try { await api('/api/catalog', { id, add }); } catch (e) { toast('Could not change the Home Screen'); return; }
+    if (add) R.apps.push({ id }); else R.apps = R.apps.filter((a) => a.id !== id);
+    renderLib();
+    toast(add ? 'Added to Home' : 'Taken off Home');
+  }));
+}
+
 /* ---------- editor */
 const SWATCHES = [['#e50914', '#5a0408'], ['#1a98ff', '#0b2a4a'], ['#1d3fd6', '#06123f'], ['#7b2cff', '#1d0550'], ['#ff2d55', '#4a0716'],
   ['#ff5a1f', '#4a1300'], ['#ffc421', '#7a5200'], ['#1ed760', '#05361a'], ['#00c2c7', '#003c40'], ['#3a3a46', '#121218']];
@@ -327,18 +355,88 @@ function openEditor(app) {
   ed('tag').value = app?.tagline || '';
   ed('delete').classList.toggle('hidden', !app);
   ed('move').classList.toggle('hidden', !app);
+  CROP.img = null;
+  setEdMode(app && app.icon && /^(https?:|data:|\/)/.test(app.icon) ? 'logo' : 'name');
   $('#ed-sheet').classList.remove('hidden');
   preview();
 }
+
+/* ---------- tile style: name or logo (with a cropper for logos from the phone) */
+const CROP = { img: null, zoom: 1, x: 0, y: 0, base: 1 };
+let edMode = 'name';
+function setEdMode(m) {
+  edMode = m;
+  $$('#ed-mode button').forEach((b) => b.classList.toggle('on', b.dataset.m === m));
+  $('.m-name').classList.toggle('hidden', m !== 'name');
+  $('.m-logo').classList.toggle('hidden', m !== 'logo');
+  $('#crop-tools').classList.toggle('hidden', !CROP.img);
+  preview();
+}
+$$('#ed-mode button').forEach((b) => (b.onclick = () => { vibe(); setEdMode(b.dataset.m); }));
+ed('pick').onclick = () => ed('file').click();
+ed('file').onchange = () => {
+  const f = ed('file').files[0];
+  if (!f) return;
+  const img = new Image();
+  img.onload = () => { CROP.img = img; fitLogo(0.8); $('#crop-tools').classList.remove('hidden'); preview(); };
+  img.src = URL.createObjectURL(f);
+};
+function fitLogo(k) {   // k < 1: logo inside the tile, k = 'fill': cover the tile
+  const W = 640, H = 384, img = CROP.img;
+  CROP.base = k === 'fill' ? Math.max(W / img.width, H / img.height) : Math.min(W / img.width, H / img.height) * k;
+  CROP.zoom = 1; CROP.x = 0; CROP.y = 0;
+  ed('zoom').value = 100;
+  drawCrop();
+}
+ed('fit').onclick = () => { fitLogo(0.8); };
+ed('fill').onclick = () => { fitLogo('fill'); };
+ed('zoom').oninput = () => { CROP.zoom = ed('zoom').value / 100; drawCrop(); };
+function drawCrop() {
+  const cv = ed('crop'), g = cv.getContext('2d'), W = cv.width, H = cv.height;
+  const grad = g.createLinearGradient(0, 0, W * 0.6, H);
+  grad.addColorStop(0, ed('c1').value); grad.addColorStop(1, ed('c2').value);
+  g.fillStyle = grad; g.fillRect(0, 0, W, H);
+  if (!CROP.img) return;
+  const s = CROP.base * CROP.zoom, w = CROP.img.width * s, h = CROP.img.height * s;
+  g.imageSmoothingQuality = 'high';
+  g.drawImage(CROP.img, (W - w) / 2 + CROP.x, (H - h) / 2 + CROP.y, w, h);
+}
+(() => {   // drag to move, pinch to zoom
+  const cv = ed('crop'), pts = new Map();
+  let last = null, pinch = null;
+  cv.addEventListener('pointerdown', (e) => { cv.setPointerCapture(e.pointerId); pts.set(e.pointerId, [e.clientX, e.clientY]); last = [e.clientX, e.clientY]; });
+  cv.addEventListener('pointermove', (e) => {
+    if (!pts.has(e.pointerId)) return;
+    pts.set(e.pointerId, [e.clientX, e.clientY]);
+    const k = cv.width / cv.clientWidth;
+    if (pts.size === 2) {
+      const [a, b] = [...pts.values()], d = Math.hypot(a[0] - b[0], a[1] - b[1]);
+      if (pinch) { CROP.zoom = Math.max(0.1, Math.min(4, CROP.zoom * d / pinch)); ed('zoom').value = Math.round(CROP.zoom * 100); }
+      pinch = d;
+    } else if (last) {
+      CROP.x += (e.clientX - last[0]) * k; CROP.y += (e.clientY - last[1]) * k;
+    }
+    last = [e.clientX, e.clientY];
+    drawCrop();
+  });
+  const end = (e) => { pts.delete(e.pointerId); if (pts.size < 2) pinch = null; last = null; };
+  cv.addEventListener('pointerup', end); cv.addEventListener('pointercancel', end);
+})();
 function edData() {
   return {
     name: ed('name').value.trim(), url: ed('url').value.trim(), label: ed('label').value.trim() || ed('name').value.trim(),
     c1: ed('c1').value, c2: ed('c2').value, fg: ed('fg').value, ua: ed('ua').value, back: ed('back').value,
     tagline: ed('tag').value.trim(),
-    icon: ed('icon').value.trim() || (edApp && edApp.icon && !/^(https?:|data:|\/)/.test(edApp.icon) ? edApp.icon : ''),
+    icon: edMode === 'name' ? '' : (ed('icon').value.trim() || (edApp && edApp.icon && !/^(https?:|data:|\/)/.test(edApp.icon) ? edApp.icon : '')),
   };
 }
-function preview() { ed('tile').innerHTML = tileFace(edData()); }
+function preview() {
+  const cropping = edMode === 'logo' && CROP.img;
+  ed('crop').classList.toggle('hidden', !cropping);
+  ed('tile').classList.toggle('hidden', !!cropping);
+  if (cropping) drawCrop();
+  else ed('tile').innerHTML = tileFace(edData());
+}
 ['name', 'label', 'icon', 'c1', 'c2', 'fg'].forEach((k) => ed(k).addEventListener('input', preview));
 ed('swatches').innerHTML = SWATCHES.map(([a, b]) => `<button style="background:linear-gradient(150deg,${a},${b})" data-a="${a}" data-b="${b}"></button>`).join('');
 ed('swatches').addEventListener('click', (e) => {
@@ -362,6 +460,11 @@ ed('save').onclick = async () => {
   const d = edData();
   if (!d.name || !d.url) { toast('Name and web address are needed'); return; }
   try {
+    if (edMode === 'logo' && CROP.img) {   // upload the cropped logo first
+      drawCrop();
+      const up = await api('/api/icons', { data: ed('crop').toDataURL('image/png') });
+      d.icon = up.url;
+    }
     if (edApp) await api(`/api/apps/${encodeURIComponent(edApp.id)}`, d, 'PUT');
     else await api('/api/apps', d);
     $('#ed-sheet').classList.add('hidden');
