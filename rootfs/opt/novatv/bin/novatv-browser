@@ -14,6 +14,11 @@ for _ in $(seq 1 80); do
   sleep 0.25
 done
 
+# Only one Chromium ever runs here. A lock left by the previous run (power cut, reboot, or
+# a new device name from setup: the lock holds the hostname) would make Chromium think
+# another computer uses the profile and quit at once, so clear it.
+rm -f "$PROFILE/SingletonLock" "$PROFILE/SingletonSocket" "$PROFILE/SingletonCookie"
+
 # Never show "Chromium didn't shut down correctly"
 PREFS="$PROFILE/Default/Preferences"
 [ -f "$PREFS" ] && sed -i 's/"exited_cleanly":false/"exited_cleanly":true/; s/"exit_type":"[^"]*"/"exit_type":"Normal"/' "$PREFS"
