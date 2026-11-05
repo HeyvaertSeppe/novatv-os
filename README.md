@@ -40,6 +40,12 @@ a Wayland kiosk compositor.
   - Automatic headroom so boosts don't distort
   - On the TV: *Settings → Audio & Bluetooth → Equalizer*. Press OK on a slider or knob, then
     ↑/↓ to change it and ←/→ to move to the next one.
+- **Resolution**: *Settings → Resolution* lists every mode your TV reports (4K 60/50/30/25/24 Hz,
+  1440p, 1080p, 720p…) plus *Automatic* (the best your TV supports). It switches live; if you don't
+  press *Keep* within 15 seconds it goes back, so an unsupported mode can't leave you with a black
+  screen. The choice is also used from power-on. At 4K everything renders at 2× sharpness, so the
+  interface and all apps keep the same size and layout, just crisper. Default is 1080p 60 Hz,
+  the smoothest for navigation on a Pi.
 - **Screen saver**: a large clock with seconds and the date, on a very dark, slowly moving
   gradient or plain black (*Settings → Screen Saver → Style*). It drifts slightly every minute
   to protect OLED screens.

@@ -165,6 +165,7 @@ class State:
             "setup_resume": s.get("setup_resume", ""),
             "screensaver_minutes": s.get("screensaver_minutes", 5),
             "screensaver_style": s.get("screensaver_style", "gradient"),
+            "display": s.get("display", "1920x1080@60"),
             "keep_background": s.get("keep_background", 1),
             "pair_code": s.get("pair_code") or f"{secrets.randbelow(10**6):06d}",
             "token": s.get("token") or secrets.token_urlsafe(32),
@@ -896,6 +897,99 @@ class Server:
                 return web.json_response(await self.audio.change_volume(body["action"]))
         return web.json_response(await self.audio.read_volume())
 
+    # ---- display resolution
+    def mode_label(self, w, h, r=None):
+        name = {2160: "4K", 1440: "1440p", 1080: "1080p", 720: "720p", 576: "576p", 480: "480p"}.get(h, f"{w}×{h}")
+        if w == 4096:
+            name = "4K DCI"
+        return f"{name} · {round(r)} Hz" if r is not None else name
+
+    async def display_list(self):
+        if DRY_RUN:
+            modes = [(3840, 2160, 60.0), (3840, 2160, 59.94), (3840, 2160, 50.0), (3840, 2160, 30.0), (3840, 2160, 25.0),
+                     (3840, 2160, 24.0), (2560, 1440, 60.0), (1920, 1080, 60.0), (1920, 1080, 50.0), (1920, 1080, 30.0),
+                     (1920, 1080, 24.0), (1280, 720, 60.0), (1280, 720, 50.0)]
+            cur = getattr(self, "_dry_display", "1920x1080@60.000")
+            raw = {"name": "HDMI-A-1", "scale": 1, "modes": [{"w": w, "h": h, "r": r, "current": f"{w}x{h}@{r:.3f}" == cur}
+                                                             for w, h, r in modes]}
+        else:
+            rc, out = await arun([str(HOME / "bin" / "novatv-display"), "list"], 20)
+            try:
+                raw = json.loads(out or "{}")
+            except json.JSONDecodeError:
+                raw = {}
+        best = {}
+        for m in raw.get("modes", []):
+            if m["h"] < 720 or m["r"] > 61:
+                continue
+            key = (m["w"], m["h"], round(m["r"]))
+            # keep one entry per resolution + rounded rate (60 Hz beats 59.94 Hz)
+            if key not in best or abs(m["r"] - round(m["r"])) < abs(best[key]["r"] - round(best[key]["r"])) or m.get("current"):
+                best[key] = dict(m, current=m.get("current") or best.get(key, {}).get("current", False))
+        modes = sorted(best.values(), key=lambda m: (m["w"] * m["h"], m["r"]), reverse=True)
+        items = [{"id": f"{m['w']}x{m['h']}@{m['r']:.3f}", "label": self.mode_label(m["w"], m["h"], m["r"]),
+                  "w": m["w"], "h": m["h"], "r": round(m["r"], 3), "current": bool(m.get("current"))} for m in modes]
+        top = items[0]["label"] if items else None
+        cur = next((i for i in items if i["current"]), None)
+        return {"output": raw.get("name"), "modes": items, "best": top,
+                "current": cur["label"] if cur else None, "current_id": cur["id"] if cur else None,
+                "setting": self.state.settings.get("display", "1920x1080@60"),
+                "pending": getattr(self, "_display_pending", None) and self._display_pending["label"]}
+
+    async def display_apply(self, mode):
+        if DRY_RUN:
+            self._dry_display = mode if mode != "auto" else "3840x2160@60.000"
+            return True
+        rc, _ = await arun([str(HOME / "bin" / "novatv-display"), "set", mode], 20)
+        return rc == 0
+
+    async def h_display(self, req):
+        self.require_auth(req)
+        if req.method == "GET":
+            return web.json_response(await self.display_list())
+        mode = str((await req.json()).get("mode", ""))
+        if mode != "auto" and not re.fullmatch(r"\d{3,4}x\d{3,4}@[\d.]+", mode):
+            raise web.HTTPBadRequest()
+        info = await self.display_list()
+        prev = info["current_id"] or self.state.settings.get("display", "1920x1080@60")
+        label = info["best"] if mode == "auto" else next((m["label"] for m in info["modes"] if m["id"] == mode), mode)
+        if not await self.display_apply(mode):
+            return web.json_response({"ok": False, "error": "The TV doesn't accept this mode"}, status=400)
+        # keep it only if somebody confirms: a TV that can't show the mode stays black otherwise
+        if getattr(self, "_display_task", None):
+            self._display_task.cancel()
+        self._display_pending = {"mode": mode, "prev": prev, "label": f"Automatic ({label})" if mode == "auto" else label}
+
+        async def revert_later():
+            await asyncio.sleep(15)
+            await self.display_confirm(False)
+        self._display_task = asyncio.create_task(revert_later())
+        await self.broadcast({"t": "display_confirm", "label": self._display_pending["label"], "seconds": 15})
+        return web.json_response({"ok": True, "label": self._display_pending["label"], "seconds": 15})
+
+    async def display_confirm(self, keep):
+        p = getattr(self, "_display_pending", None)
+        if not p:
+            return
+        self._display_pending = None
+        task = getattr(self, "_display_task", None)
+        if task and task is not asyncio.current_task():
+            task.cancel()
+        if keep:
+            self.state.settings["display"] = p["mode"]
+            self.state.save()
+            await arun(HELPER + ["display-boot", p["mode"]])
+            await self.toast(f"Resolution: {p['label']}")
+        else:
+            await self.display_apply(p["prev"])
+            await self.toast("Resolution restored")
+        await self.broadcast({"t": "display", **(await self.display_list())})
+
+    async def h_display_confirm(self, req):
+        self.require_auth(req)
+        await self.display_confirm(bool((await req.json()).get("keep")))
+        return web.json_response({"ok": True})
+
     # ---- audio, equalizer, bluetooth
     async def h_audio(self, req):
         self.require_auth(req)
@@ -1140,6 +1234,8 @@ class Server:
         r.add_post("/api/system/{action}", self.h_system)
         r.add_route("*", "/api/volume", self.h_volume)
         r.add_get("/api/audio", self.h_audio)
+        r.add_route("*", "/api/display", self.h_display)
+        r.add_post("/api/display/confirm", self.h_display_confirm)
         r.add_post("/api/audio/output", self.h_audio_output)
         r.add_post("/api/audio/eq", self.h_eq)
         r.add_post("/api/audio/preset", self.h_preset)

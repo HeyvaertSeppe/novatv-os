@@ -21,7 +21,7 @@ apt-get update
 apt-get -y -o Dpkg::Options::=--force-confdef -o Dpkg::Options::=--force-confold full-upgrade
 PKGS=(
   chromium libwidevinecdm0          # browser + Widevine DRM (L3) for Netflix, Prime, Disney+ ...
-  cage                              # Wayland kiosk compositor
+  cage wlr-randr                    # Wayland kiosk compositor + live resolution switching
   python3-aiohttp python3-qrcode    # NovaTV server
   pipewire pipewire-pulse pipewire-alsa pipewire-bin wireplumber   # audio + the equalizer (filter-chain)
   bluez libspa-0.2-bluetooth        # Bluetooth speakers and headphones (A2DP, absolute volume)

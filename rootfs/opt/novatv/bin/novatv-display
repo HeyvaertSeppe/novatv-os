@@ -1,0 +1,117 @@
+#!/usr/bin/env python3
+"""NovaTV display modes (resolution + refresh rate) through wlr-randr.
+
+  novatv-display list            JSON: the TV's modes, the current one and the scale
+  novatv-display set MODE|auto   switch now (MODE = 3840x2160@60.000000)
+  novatv-display apply           apply the mode saved in NovaTV's settings (session start)
+
+At 2160p the output scale is 2, so websites and apps keep the same layout as at 1080p
+but render twice as sharp. Below 2160p the scale is 1.
+"""
+import glob
+import json
+import os
+import re
+import subprocess
+import sys
+
+STATE = os.environ.get("NOVATV_STATE", "/var/lib/novatv") + "/state.json"
+
+
+def env():
+    e = dict(os.environ)
+    e.setdefault("XDG_RUNTIME_DIR", f"/run/user/{os.getuid()}")
+    if not e.get("WAYLAND_DISPLAY"):
+        socks = sorted(s for s in glob.glob(os.path.join(e["XDG_RUNTIME_DIR"], "wayland-*")) if not s.endswith(".lock"))
+        if socks:
+            e["WAYLAND_DISPLAY"] = os.path.basename(socks[0])
+    return e
+
+
+def randr(*args):
+    return subprocess.run(["wlr-randr", *args], capture_output=True, text=True, timeout=15, env=env())
+
+
+def outputs():
+    p = randr("--json")
+    if p.returncode == 0 and p.stdout.strip().startswith("["):
+        outs = []
+        for o in json.loads(p.stdout):
+            outs.append({"name": o["name"], "enabled": o.get("enabled", True), "scale": o.get("scale", 1.0),
+                         "modes": [{"w": m["width"], "h": m["height"], "r": m["refresh"],
+                                    "preferred": m.get("preferred", False), "current": m.get("current", False)}
+                                   for m in o.get("modes", [])]})
+        return outs
+    # plain text fallback
+    p = randr()
+    outs, cur = [], None
+    for line in p.stdout.splitlines():
+        if line and not line[0].isspace():
+            cur = {"name": line.split()[0], "enabled": True, "scale": 1.0, "modes": []}
+            outs.append(cur)
+        elif cur is not None:
+            m = re.match(r"\s+(\d+)x(\d+) px, ([\d.]+) Hz(.*)", line)
+            if m:
+                cur["modes"].append({"w": int(m[1]), "h": int(m[2]), "r": float(m[3]),
+                                     "preferred": "preferred" in m[4], "current": "current" in m[4]})
+            elif "Enabled:" in line:
+                cur["enabled"] = "yes" in line
+            elif "Scale:" in line:
+                cur["scale"] = float(line.split(":")[1])
+    return outs
+
+
+def main_output():
+    outs = [o for o in outputs() if o["modes"]]
+    hdmi = [o for o in outs if o["name"].startswith("HDMI") and o["enabled"]] or outs
+    return hdmi[0] if hdmi else None
+
+
+def scale_for(h):
+    return 2 if h >= 2160 else 1
+
+
+def set_mode(spec):
+    out = main_output()
+    if not out:
+        print("no display connected", file=sys.stderr)
+        return 1
+    if spec == "auto":   # the best the TV can do: highest resolution, then highest refresh up to 60 Hz
+        m = max((m for m in out["modes"] if m["r"] <= 61), key=lambda m: (m["w"] * m["h"], m["r"]),
+                default=out["modes"][0])
+    else:
+        mm = re.match(r"(\d+)x(\d+)@([\d.]+)", spec)
+        if not mm:
+            return 2
+        w, h, r = int(mm[1]), int(mm[2]), float(mm[3])
+        cands = [m for m in out["modes"] if m["w"] == w and m["h"] == h]
+        if not cands:
+            print("mode not supported by this TV", file=sys.stderr)
+            return 3
+        m = min(cands, key=lambda m: abs(m["r"] - r))
+    p = randr("--output", out["name"], "--mode", f"{m['w']}x{m['h']}@{m['r']:.6f}Hz", "--scale", str(scale_for(m["h"])))
+    if p.returncode:
+        print(p.stderr.strip(), file=sys.stderr)
+    return p.returncode
+
+
+def main():
+    cmd = sys.argv[1] if len(sys.argv) > 1 else "list"
+    if cmd == "list":
+        out = main_output()
+        print(json.dumps(out or {"name": None, "modes": [], "scale": 1}))
+        return 0
+    if cmd == "set" and len(sys.argv) > 2:
+        return set_mode(sys.argv[2])
+    if cmd == "apply":
+        try:
+            mode = json.load(open(STATE))["settings"].get("display", "1920x1080@60")
+        except Exception:  # noqa: BLE001
+            mode = "1920x1080@60"
+        return set_mode(mode or "1920x1080@60")
+    print(__doc__)
+    return 2
+
+
+if __name__ == "__main__":
+    sys.exit(main())

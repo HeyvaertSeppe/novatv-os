@@ -27,6 +27,19 @@ case "${1:-}" in
     sed -i "s/^127\.0\.1\.1.*/127.0.1.1\t$2/" /etc/hosts
     systemctl try-restart avahi-daemon.service || true
     ;;
+  display-boot)
+    # resolution used from power-on (boot animation included): video= in cmdline.txt
+    MODE="${2:-}"
+    [[ "$MODE" == auto || "$MODE" =~ ^[0-9]{3,4}x[0-9]{3,4}@[0-9.]+$ ]] || exit 2
+    CMD=/boot/firmware/cmdline.txt
+    [ -f "$CMD" ] || exit 0
+    sed -i -E 's/ ?video=HDMI-A-[12]:[^ ]*//g' "$CMD"
+    if [ "$MODE" != auto ]; then
+      RATE=$(printf '%.0f' "${MODE#*@}")
+      RES="${MODE%@*}"
+      sed -i "1 s|\$| video=HDMI-A-1:${RES}@${RATE} video=HDMI-A-2:${RES}@${RATE}|" "$CMD"
+    fi
+    ;;
   restart-ui)
     pkill -u tv -f -- "--user-data-dir=/home/tv/.config/novatv-browser" || systemctl restart getty@tty1.service
     ;;

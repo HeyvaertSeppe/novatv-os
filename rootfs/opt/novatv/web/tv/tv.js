@@ -214,6 +214,8 @@ function onMessage(m) {
     case 'home': goHome(); break;
     case 'open': if (m.screen === 'settings') openSettings(); break;
     case 'key': input(m.k); break;
+    case 'display': { const { t, ...d } = m; S.display = d; closeAlertIf('display'); refreshAudioViews(); break; }
+    case 'display_confirm': confirmDisplay(m.label, m.seconds); break;
     case 'volume': S.audio.volume = { level: m.level, muted: m.muted }; showVolume(m); break;
     case 'audio': { const { t, ...a } = m; S.audio = a; refreshAudioViews(); break; }
     case 'eq': S.audio.eq = m.eq; S.audio.preset = m.preset; if (S.screen === 'eq' && !S.eqLocal) updateEq(); break;
@@ -551,6 +553,7 @@ function settingsPages() {
         { label: 'Remote', value: S.remotes ? `${S.remotes} connected` : 'Pair a phone', act: () => pushPage('remote') },
         { label: 'Network', value: S.info.ip || 'Offline', act: () => pushPage('network') },
         { label: 'Audio & Bluetooth', value: S.audio.active_name || 'TV', act: () => pushPage('audio') },
+        { label: 'Resolution', value: (S.display && S.display.current) || '1080p · 60 Hz', act: () => openResolutions() },
         { label: 'Device Name', value: s.device_name, act: () => openSetupStep('name', 'settings') },
         { label: 'Keyboard Layout', value: (S.layouts || {})[s.keyboard] || s.keyboard, act: () => pushPage('keyboard') },
         { label: 'Screen Saver', value: ssLabel(s.screensaver_minutes), act: () => pushPage('saver') },
@@ -603,6 +606,16 @@ function settingsPages() {
       ],
     },
     bluetooth: btPage(),
+    resolutions: {
+      title: 'Resolution', icon: I.tv,
+      sub: 'Pick what your TV can show. 4K is the sharpest; 1080p is the smoothest to navigate. Apps and the interface follow automatically.',
+      rows: S.display && S.display.modes.length ? [
+        { label: `Automatic${S.display.best ? ` (${S.display.best})` : ''}`, value: S.display.setting === 'auto' ? '✓' : '', act: () => chooseMode('auto') },
+        ...S.display.modes.map((m) => ({
+          label: m.label, value: m.current ? (S.display.setting === 'auto' ? 'Current' : '✓') : '', act: () => chooseMode(m.id),
+        })),
+      ] : [{ label: S.display ? 'No TV information available' : 'Reading the TV’s modes…', value: '', static: true }],
+    },
     saver: {
       title: 'Screen Saver', icon: I.tv,
       sub: 'A calm clock appears when nothing happens on the home screen. Any button wakes the TV.',
@@ -991,7 +1004,7 @@ async function setOutput(name) {
 
 function refreshAudioViews() {
   const page = S.stack[S.stack.length - 1];
-  if (S.screen === 'settings' && ['root', 'audio', 'outputs', 'bluetooth'].includes(page)) renderSettings(true);
+  if (S.screen === 'settings' && ['root', 'audio', 'outputs', 'bluetooth', 'resolutions'].includes(page)) renderSettings(true);
   if (S.screen === 'eq') renderEq(true);
 }
 
@@ -1196,4 +1209,34 @@ function savePresetPrompt() {
   a.appendChild(box);
   a.classList.remove('hidden');
   focusFirst(a);
+}
+
+/* ================================================================ display resolution */
+async function openResolutions() {
+  pushPage('resolutions');
+  try { S.display = await api('/api/display'); } catch (e) { S.display = { modes: [] }; }
+  if (S.stack[S.stack.length - 1] === 'resolutions') renderSettings(true);
+}
+
+async function chooseMode(id) {
+  toast('Switching resolution…');
+  try { await api('/api/display', { mode: id }); } catch (e) { toast("Your TV doesn't accept this mode"); }
+}
+
+let confirmTimer = 0;
+function confirmDisplay(label, seconds) {
+  let left = seconds;
+  alertBox('Keep This Resolution?', '', [
+    { label: 'Keep', act: () => { clearInterval(confirmTimer); api('/api/display/confirm', { keep: true }); } },
+    { label: 'Go Back', act: () => { clearInterval(confirmTimer); api('/api/display/confirm', { keep: false }); } },
+  ]);
+  $('#alert').dataset.kind = 'display';
+  const p = $('#alert p');
+  const upd = () => { p.textContent = `${label}. Going back to the previous resolution in ${left} seconds.`; };
+  upd();
+  clearInterval(confirmTimer);
+  confirmTimer = setInterval(() => { left--; if (left <= 0) { clearInterval(confirmTimer); closeAlertIf('display'); } else upd(); }, 1000);
+}
+function closeAlertIf(kind) {
+  if ($('#alert').dataset.kind === kind) { $('#alert').dataset.kind = ''; closeAlert(); }
 }

@@ -402,6 +402,10 @@ function renderSettings() {
       <label class="item"><span class="k">Screen saver style</span><select id="s-sst"><option value="gradient" ${s.screensaver_style !== 'black' ? 'selected' : ''}>Dark gradient</option><option value="black" ${s.screensaver_style === 'black' ? 'selected' : ''}>Black</option></select></label>
       <label class="item"><span class="k">Apps kept open</span><select id="s-bg">${bg}</select></label>
     </div>
+    <div class="group-title">Display</div>
+    <div class="group">
+      <label class="item"><span class="k">Resolution</span><select id="s-res"><option>Loading…</option></select></label>
+    </div>
     <div class="group-title">Apps</div>
     <div class="group">
       <button class="item action" id="s-reset-apps">Restore default apps</button>
@@ -423,6 +427,7 @@ function renderSettings() {
   $('#s-ss').addEventListener('change', (e) => save({ screensaver_minutes: +e.target.value }));
   $('#s-bg').addEventListener('change', (e) => save({ keep_background: +e.target.value }));
   $('#s-sst').addEventListener('change', (e) => save({ screensaver_style: e.target.value }));
+  loadResolutions();
   $('#s-reset-apps').onclick = async () => { if (confirm('Replace your app list with the default apps?')) { await api('/api/apps/reset', {}); toast('Default apps restored'); } };
   $('#s-forget').onclick = async () => { if (confirm('Sign out every other phone and create a new pairing code?')) { await api('/api/repair', {}); toast('Other phones signed out'); } };
   $$('[data-sys]').forEach((b) => (b.onclick = async () => {
@@ -431,6 +436,25 @@ function renderSettings() {
     await api(`/api/system/${b.dataset.sys}`, {});
     toast(`${label}…`);
   }));
+}
+
+/* ================================================================ display */
+async function loadResolutions() {
+  let d;
+  try { d = await api('/api/display'); } catch (e) { return; }
+  const sel = $('#s-res');
+  if (!sel) return;
+  const opts = [`<option value="auto" ${d.setting === 'auto' ? 'selected' : ''}>Automatic${d.best ? ` (${esc(d.best)})` : ''}</option>`,
+    ...d.modes.map((m) => `<option value="${m.id}" ${d.setting !== 'auto' && m.current ? 'selected' : ''}>${esc(m.label)}</option>`)];
+  sel.innerHTML = d.modes.length ? opts.join('') : '<option>Not available</option>';
+  sel.onchange = async () => {
+    const res = await api('/api/display', { mode: sel.value }).catch(() => null);
+    if (!res || !res.ok) { toast("The TV doesn't accept this mode"); loadResolutions(); return; }
+    // the TV reverts by itself after 15 s if nobody confirms
+    const keep = confirm(`Does the TV show a picture at ${res.label}? OK keeps it, Cancel goes back.`);
+    await api('/api/display/confirm', { keep });
+    loadResolutions();
+  };
 }
 
 /* ================================================================ audio tab */
