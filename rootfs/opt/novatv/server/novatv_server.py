@@ -166,6 +166,8 @@ class State:
             "screensaver_minutes": s.get("screensaver_minutes", 5),
             "screensaver_style": s.get("screensaver_style", "gradient"),
             "display": s.get("display", "1920x1080@60"),
+            "cec_enabled": s.get("cec_enabled", True),
+            "cec_autoswitch": s.get("cec_autoswitch", True),
             "keep_background": s.get("keep_background", 1),
             "pair_code": s.get("pair_code") or f"{secrets.randbelow(10**6):06d}",
             "token": s.get("token") or secrets.token_urlsafe(32),
@@ -666,6 +668,13 @@ class Server:
             k = m.get("k")
             if k == "home":
                 await self.home()
+            elif k == "standby":
+                # the TV was switched off: pause whatever plays
+                if b.ok and b.active != b.launcher:
+                    try:
+                        await b.evaluate("document.querySelectorAll('video,audio').forEach(m=>{try{m.pause()}catch(e){}})")
+                    except Exception:  # noqa: BLE001
+                        pass
             elif k == "back":
                 if b.ok:
                     await b.back()
@@ -896,6 +905,35 @@ class Server:
             if body.get("action") in ("volup", "voldown", "mute"):
                 return web.json_response(await self.audio.change_volume(body["action"]))
         return web.json_response(await self.audio.read_volume())
+
+    # ---- TV control (HDMI-CEC)
+    async def h_cec(self, req):
+        self.require_auth(req)
+        s = self.state.settings
+        if req.method == "POST":
+            body = await req.json()
+            changed = False
+            for k in ("cec_enabled", "cec_autoswitch"):
+                if k in body:
+                    s[k] = bool(body[k])
+                    changed = True
+            if changed:
+                self.state.save()
+                await self.broadcast({"t": "settings", "settings": self.state.public_settings()})
+                await arun(HELPER + ["cec", "restart"])
+            if body.get("tv") in ("on", "off", "switch"):
+                await arun(HELPER + ["cec", body["tv"]])
+                await self.toast({"on": "Turning the TV on", "off": "Turning the TV off",
+                                  "switch": "Switching the TV to NovaTV"}[body["tv"]])
+        status = {"enabled": s["cec_enabled"], "connected": False}
+        if DRY_RUN:
+            status = {"enabled": s["cec_enabled"], "connected": s["cec_enabled"], "tv": "Samsung", "port": "HDMI 1"}
+        else:
+            try:
+                status = json.loads(Path("/run/novatv-cec.json").read_text())
+            except (OSError, json.JSONDecodeError):
+                pass
+        return web.json_response({**status, "enabled": s["cec_enabled"], "autoswitch": s["cec_autoswitch"]})
 
     # ---- display resolution
     def mode_label(self, w, h, r=None):
@@ -1235,6 +1273,7 @@ class Server:
         r.add_route("*", "/api/volume", self.h_volume)
         r.add_get("/api/audio", self.h_audio)
         r.add_route("*", "/api/display", self.h_display)
+        r.add_route("*", "/api/cec", self.h_cec)
         r.add_post("/api/display/confirm", self.h_display_confirm)
         r.add_post("/api/audio/output", self.h_audio_output)
         r.add_post("/api/audio/eq", self.h_eq)

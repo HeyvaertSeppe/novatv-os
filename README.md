@@ -22,7 +22,13 @@ a Wayland kiosk compositor.
   - **Keyboard**: type on your phone, text appears on the TV (logins, search)
   - Apps tab: launch apps, **add any website as an app**, edit, reorder, delete
   - Settings: name, screen saver, restart, shut down, sign out other phones
-- **Your TV's own remote** works too through HDMI-CEC (arrows, OK, back, play/pause).
+- **Your TV's own remote** controls NovaTV through HDMI-CEC (arrows, OK, Back/Exit, Home/Menu,
+  play/pause, rewind/fast-forward). Switch on CEC in the TV's settings: Anynet+ (Samsung), SimpLink
+  (LG), Bravia Sync (Sony), EasyLink (Philips), VIERA Link (Panasonic). Works on either HDMI port.
+  NovaTV switches the TV to its input when it starts, pauses playback when the TV is switched off,
+  and can turn the TV off or switch it to NovaTV from *Settings → TV Remote* or the phone.
+  (HDMI ARC/eARC is for sound from the TV to a soundbar. It works automatically and doesn't
+  need anything from NovaTV.)
 - **Bluetooth speakers and headphones**: *Settings → Audio & Bluetooth → Bluetooth* on the TV,
   or the **Audio** tab on the phone. Pick the device in pairing mode and NovaTV pairs, trusts and
   connects it, then plays sound on it right away. It reconnects automatically after a restart.

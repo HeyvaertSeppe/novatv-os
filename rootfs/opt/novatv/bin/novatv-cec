@@ -1,9 +1,15 @@
 #!/usr/bin/env python3
-"""HDMI-CEC bridge: lets the TV's own remote control NovaTV.
+"""HDMI-CEC bridge: lets the TV's own remote control NovaTV (Anynet+, SimpLink, Bravia Sync, EasyLink...).
 
-Registers as a playback device, listens for remote button presses
-and forwards them to the NovaTV server like the phone remote does.
+- registers NovaTV as a CEC playback device on whichever HDMI port is connected
+- runs cec-follower so the TV gets proper answers (power status, menu status, vendor, name);
+  many TVs only forward remote buttons to devices that answer these
+- forwards remote buttons to the NovaTV server, matched by their standard CEC codes
+- One Touch Play: switches the TV to NovaTV when it starts (setting)
+- pauses playback when the TV goes into standby
+Status for the settings screen is written to /run/novatv-cec.json.
 """
+import glob
 import json
 import os
 import re
@@ -11,43 +17,126 @@ import subprocess
 import time
 import urllib.request
 
-DEV = os.environ.get("CEC_DEVICE", "/dev/cec0")
-KEYMAP = {
-    "up": "up", "down": "down", "left": "left", "right": "right", "select": "select",
-    "exit": "back", "back": "back", "root menu": "home", "setup menu": "home",
-    "contents menu": "home", "home": "home", "play": "playpause", "pause": "playpause",
-    "pause-play function": "playpause", "play function": "playpause", "pause function": "playpause",
-    "volume up": "volup", "volume down": "voldown", "mute": "mute",
+STATE = os.environ.get("NOVATV_STATE", "/var/lib/novatv") + "/state.json"
+STATUS = os.environ.get("CEC_STATUS", "/run/novatv-cec.json")
+DEVICES = os.environ.get("CEC_DEVICES", "/dev/cec*")
+SERVER = os.environ.get("NOVATV_URL", "http://127.0.0.1")
+
+# CEC "user control" codes (CEC 1.4 / 2.0 spec) -> NovaTV keys
+UI_CODES = {
+    0x00: "select", 0x01: "up", 0x02: "down", 0x03: "left", 0x04: "right",
+    0x09: "home", 0x0A: "home", 0x0B: "home", 0x0D: "back", 0x10: "home",
+    0x30: "pageup", 0x31: "pagedown",
+    0x41: "volup", 0x42: "voldown", 0x43: "mute",
+    0x44: "playpause", 0x45: "playpause", 0x46: "playpause", 0x60: "playpause", 0x61: "playpause",
+    0x48: "left", 0x49: "right",          # rewind / fast forward seek in most players
+    0x91: "back",                          # "Back" on some newer remotes
 }
 
 
-def send(key):
-    req = urllib.request.Request("http://127.0.0.1/api/key", data=json.dumps({"k": key}).encode(),
+def settings():
+    try:
+        return json.load(open(STATE)).get("settings", {})
+    except Exception:  # noqa: BLE001
+        return {}
+
+
+def post(key):
+    req = urllib.request.Request(f"{SERVER}/api/key", data=json.dumps({"k": key}).encode(),
                                  headers={"Content-Type": "application/json"})
     try:
-        urllib.request.urlopen(req, timeout=2).read()
+        urllib.request.urlopen(req, timeout=3).read()
     except Exception as e:  # noqa: BLE001
         print("send failed:", e, flush=True)
 
 
+def ctl(dev, *args, timeout=10):
+    try:
+        return subprocess.run(["cec-ctl", "-d", dev, *args], capture_output=True, text=True, timeout=timeout).stdout
+    except Exception:  # noqa: BLE001
+        return ""
+
+
+def phys_addr(dev):
+    m = re.search(r"Physical Address\s*:\s*([0-9a-f.]+)", ctl(dev), re.I)
+    return m.group(1) if m else "f.f.f.f"
+
+
+def write_status(**kw):
+    try:
+        with open(STATUS + ".tmp", "w") as f:
+            json.dump(kw, f)
+        os.replace(STATUS + ".tmp", STATUS)
+    except OSError:
+        pass
+
+
+def find_connected():
+    """Configure every CEC adapter as a playback device, return the one plugged into the TV."""
+    for dev in sorted(glob.glob(DEVICES)):
+        ctl(dev, "--playback", "--osd-name", "NovaTV")
+        time.sleep(1)
+        pa = phys_addr(dev)
+        if pa.lower() != "f.f.f.f":
+            return dev, pa
+    return None, None
+
+
+def tv_name(dev):
+    out = ctl(dev, "--to", "0", "--give-osd-name", timeout=6)
+    m = re.search(r"name:\s*(.+)", out)
+    return m.group(1).strip() if m else None
+
+
 def main():
-    while not os.path.exists(DEV):
-        time.sleep(5)
-    subprocess.run(["cec-ctl", "-d", DEV, "--playback", "--osd-name", "NovaTV"], check=False)
-    proc = subprocess.Popen(["cec-ctl", "-d", DEV, "-m"], stdout=subprocess.PIPE, text=True, bufsize=1)
-    pressed = False
-    for line in proc.stdout:
-        if "USER_CONTROL_PRESSED" in line:
-            pressed = True
+    write_status(enabled=True, connected=False)
+    while True:
+        s = settings()
+        if s.get("cec_enabled", True) is False:
+            write_status(enabled=False, connected=False)
+            time.sleep(10)
             continue
-        if pressed:
-            m = re.search(r"ui-cmd:\s*(.+?)\s*\(0x", line)
-            if m:
-                key = KEYMAP.get(m.group(1).strip().lower())
-                if key:
-                    send(key)
-                pressed = False
-    proc.wait()
+        if not glob.glob(DEVICES):
+            write_status(enabled=True, connected=False, error="This device has no HDMI-CEC adapter")
+            time.sleep(30)
+            continue
+        dev, pa = find_connected()
+        if not dev:
+            write_status(enabled=True, connected=False, error="No TV detected on HDMI")
+            time.sleep(10)
+            continue
+        port = "HDMI 1" if dev.endswith("0") else "HDMI 2"
+        follower = None
+        try:
+            follower = subprocess.Popen(["cec-follower", "-d", dev], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        except FileNotFoundError:
+            pass
+        if s.get("cec_autoswitch", True):
+            ctl(dev, "--to", "0", "--image-view-on")                       # wake the TV
+            ctl(dev, "--to", "0", "--active-source", f"phys-addr={pa}")   # switch it to our input
+        write_status(enabled=True, connected=True, device=dev, port=port, phys_addr=pa, tv=tv_name(dev))
+        print(f"CEC ready on {dev} ({pa})", flush=True)
+
+        mon = subprocess.Popen(["cec-ctl", "-d", dev, "-m"], stdout=subprocess.PIPE, text=True, bufsize=1)
+        pending = None
+        for line in mon.stdout:
+            if "USER_CONTROL_PRESSED" in line:
+                pending = "key"
+            elif re.search(r"\bSTANDBY\b", line) and "Received" in line:
+                post("standby")
+            elif "State Change" in line and "pa: f.f.f.f" in line.lower():
+                break   # TV unplugged: start over
+            if pending == "key":
+                m = re.search(r"ui-cmd:.*\(0x([0-9a-f]{2})\)", line, re.I)
+                if m:
+                    key = UI_CODES.get(int(m.group(1), 16))
+                    if key:
+                        post(key)
+                    pending = None
+        mon.kill()
+        if follower:
+            follower.kill()
+        time.sleep(3)
 
 
 if __name__ == "__main__":

@@ -554,6 +554,7 @@ function settingsPages() {
         { label: 'Network', value: S.info.ip || 'Offline', act: () => pushPage('network') },
         { label: 'Audio & Bluetooth', value: S.audio.active_name || 'TV', act: () => pushPage('audio') },
         { label: 'Resolution', value: (S.display && S.display.current) || '1080p · 60 Hz', act: () => openResolutions() },
+        { label: 'TV Remote (HDMI-CEC)', value: s.cec_enabled === false ? 'Off' : 'On', act: () => openCec() },
         { label: 'Device Name', value: s.device_name, act: () => openSetupStep('name', 'settings') },
         { label: 'Keyboard Layout', value: (S.layouts || {})[s.keyboard] || s.keyboard, act: () => pushPage('keyboard') },
         { label: 'Screen Saver', value: ssLabel(s.screensaver_minutes), act: () => pushPage('saver') },
@@ -606,6 +607,17 @@ function settingsPages() {
       ],
     },
     bluetooth: btPage(),
+    cec: {
+      title: 'TV Remote', icon: I.remote,
+      sub: "Control NovaTV with your TV's own remote. Switch on HDMI-CEC in the TV's settings: Anynet+ (Samsung), SimpLink (LG), Bravia Sync (Sony), EasyLink (Philips) or VIERA Link (Panasonic).",
+      rows: [
+        { label: 'Status', value: !S.cec ? 'Checking…' : !S.cec.enabled ? 'Off' : S.cec.connected ? `Connected${S.cec.tv ? ` to ${S.cec.tv}` : ''}${S.cec.port ? ` · ${S.cec.port}` : ''}` : (S.cec.error || 'No TV found'), static: true },
+        { label: 'Use TV Remote', value: s.cec_enabled === false ? 'Off' : 'On', act: () => setCec({ cec_enabled: s.cec_enabled === false }) },
+        { label: 'Switch TV to NovaTV on Start', value: s.cec_autoswitch === false ? 'Off' : 'On', act: () => setCec({ cec_autoswitch: s.cec_autoswitch === false }) },
+        { label: 'Switch TV to NovaTV Now', act: () => setCec({ tv: 'switch' }) },
+        { label: 'Turn Off TV', act: () => setCec({ tv: 'off' }) },
+      ],
+    },
     resolutions: {
       title: 'Resolution', icon: I.tv,
       sub: 'Pick what your TV can show. 4K is the sharpest; 1080p is the smoothest to navigate. Apps and the interface follow automatically.',
@@ -1239,4 +1251,18 @@ function confirmDisplay(label, seconds) {
 }
 function closeAlertIf(kind) {
   if ($('#alert').dataset.kind === kind) { $('#alert').dataset.kind = ''; closeAlert(); }
+}
+
+/* ================================================================ TV remote (HDMI-CEC) */
+async function openCec() {
+  pushPage('cec');
+  try { S.cec = await api('/api/cec'); } catch (e) { S.cec = { enabled: false }; }
+  if (S.stack[S.stack.length - 1] === 'cec') renderSettings(true);
+}
+async function setCec(body) {
+  for (const k of ['cec_enabled', 'cec_autoswitch']) if (k in body) S.settings[k] = body[k];
+  renderSettings(true);
+  try { S.cec = await api('/api/cec', body); } catch (e) { toast('Could not change this'); }
+  setTimeout(async () => { try { S.cec = await api('/api/cec'); if (S.stack[S.stack.length - 1] === 'cec') renderSettings(true); } catch (e) { /* ignore */ } }, 4000);
+  if (S.stack[S.stack.length - 1] === 'cec') renderSettings(true);
 }

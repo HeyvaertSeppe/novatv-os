@@ -406,6 +406,13 @@ function renderSettings() {
     <div class="group">
       <label class="item"><span class="k">Resolution</span><select id="s-res"><option>Loading…</option></select></label>
     </div>
+    <div class="group-title">TV</div>
+    <div class="group">
+      <label class="item"><span class="k">Control with TV remote (HDMI-CEC)</span><label class="switch"><input type="checkbox" id="s-cec" ${s.cec_enabled !== false ? 'checked' : ''}><i></i></label></label>
+      <label class="item"><span class="k">Switch TV to NovaTV on start</span><label class="switch"><input type="checkbox" id="s-cecas" ${s.cec_autoswitch !== false ? 'checked' : ''}><i></i></label></label>
+      <button class="item action" id="s-tvswitch">Switch TV to NovaTV</button>
+      <button class="item danger" id="s-tvoff">Turn off TV</button>
+    </div>
     <div class="group-title">Apps</div>
     <div class="group">
       <button class="item action" id="s-reset-apps">Restore default apps</button>
@@ -428,6 +435,11 @@ function renderSettings() {
   $('#s-bg').addEventListener('change', (e) => save({ keep_background: +e.target.value }));
   $('#s-sst').addEventListener('change', (e) => save({ screensaver_style: e.target.value }));
   loadResolutions();
+  const cec = (body, msg) => api('/api/cec', body).then(() => msg && toast(msg)).catch(() => toast('Could not change this'));
+  $('#s-cec').onchange = (e) => cec({ cec_enabled: e.target.checked }, 'Saved');
+  $('#s-cecas').onchange = (e) => cec({ cec_autoswitch: e.target.checked }, 'Saved');
+  $('#s-tvswitch').onclick = () => cec({ tv: 'switch' });
+  $('#s-tvoff').onclick = () => { if (confirm('Turn off the TV?')) cec({ tv: 'off' }); };
   $('#s-reset-apps').onclick = async () => { if (confirm('Replace your app list with the default apps?')) { await api('/api/apps/reset', {}); toast('Default apps restored'); } };
   $('#s-forget').onclick = async () => { if (confirm('Sign out every other phone and create a new pairing code?')) { await api('/api/repair', {}); toast('Other phones signed out'); } };
   $$('[data-sys]').forEach((b) => (b.onclick = async () => {
@@ -454,6 +466,11 @@ async function loadResolutions() {
     const keep = confirm(`Does the TV show a picture at ${res.label}? OK keeps it, Cancel goes back.`);
     await api('/api/display/confirm', { keep });
     loadResolutions();
+  const cec = (body, msg) => api('/api/cec', body).then(() => msg && toast(msg)).catch(() => toast('Could not change this'));
+  $('#s-cec').onchange = (e) => cec({ cec_enabled: e.target.checked }, 'Saved');
+  $('#s-cecas').onchange = (e) => cec({ cec_autoswitch: e.target.checked }, 'Saved');
+  $('#s-tvswitch').onclick = () => cec({ tv: 'switch' });
+  $('#s-tvoff').onclick = () => { if (confirm('Turn off the TV?')) cec({ tv: 'off' }); };
   };
 }
 

@@ -40,6 +40,18 @@ case "${1:-}" in
       sed -i "1 s|\$| video=HDMI-A-1:${RES}@${RATE} video=HDMI-A-2:${RES}@${RATE}|" "$CMD"
     fi
     ;;
+  cec)
+    # TV control over HDMI-CEC: on | off | switch | restart
+    DEV=$(python3 -c "import json; print(json.load(open('/run/novatv-cec.json')).get('device',''))" 2>/dev/null)
+    PA=$(python3 -c "import json; print(json.load(open('/run/novatv-cec.json')).get('phys_addr',''))" 2>/dev/null)
+    case "${2:-}" in
+      restart) systemctl restart novatv-cec.service ;;
+      on)      [ -n "$DEV" ] && cec-ctl -d "$DEV" --to 0 --image-view-on ;;
+      off)     [ -n "$DEV" ] && cec-ctl -d "$DEV" --to 0 --standby ;;
+      switch)  [ -n "$DEV" ] && cec-ctl -d "$DEV" --to 0 --image-view-on && cec-ctl -d "$DEV" --to 0 --active-source "phys-addr=$PA" ;;
+      *) exit 2 ;;
+    esac
+    ;;
   restart-ui)
     pkill -u tv -f -- "--user-data-dir=/home/tv/.config/novatv-browser" || systemctl restart getty@tty1.service
     ;;
