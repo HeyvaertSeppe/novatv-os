@@ -36,6 +36,12 @@ jobs:
           path: out/*
           compression-level: 0
 
+      - name: Replace an existing release with the same version
+        if: github.event_name == 'workflow_dispatch'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release delete "v${{ inputs.version }}" --cleanup-tag --yes --repo "${{ github.repository }}" || true
+
       - name: Publish release
         uses: softprops/action-gh-release@v2
         with:
