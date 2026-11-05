@@ -1,0 +1,11 @@
+[Unit]
+Description=NovaTV HDMI-CEC bridge (TV remote support)
+After=novatv-server.service
+
+[Service]
+ExecStart=/opt/novatv/bin/novatv-cec
+Restart=always
+RestartSec=10
+
+[Install]
+WantedBy=multi-user.target

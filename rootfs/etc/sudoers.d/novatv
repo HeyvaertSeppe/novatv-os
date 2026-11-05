@@ -1,0 +1,2 @@
+# The NovaTV server may run its helper (fixed set of actions) as root.
+tv ALL=(root) NOPASSWD: /opt/novatv/bin/novatv-helper

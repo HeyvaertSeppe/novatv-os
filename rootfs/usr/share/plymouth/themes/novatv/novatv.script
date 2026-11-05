@@ -1,0 +1,30 @@
+# NovaTV boot animation: intro frames once, then a gentle loop until the TV interface starts.
+Window.SetBackgroundTopColor(0, 0, 0);
+Window.SetBackgroundBottomColor(0, 0, 0);
+
+N = 95;
+LOOP_START = 45;
+for (i = 0; i < N; i++)
+  frames[i] = Image("f" + i + ".png");
+
+logo = Sprite(frames[0]);
+logo.SetX(Window.GetX() + Window.GetWidth() / 2 - frames[0].GetWidth() / 2);
+logo.SetY(Window.GetY() + Window.GetHeight() / 2 - frames[0].GetHeight() / 2);
+logo.SetZ(10);
+
+frame = 0;
+tick = 0;
+
+fun refresh_callback() {
+  tick++;
+  if (tick % 2 == 0) {   # refresh runs at 50 Hz, animation at 25 fps
+    frame++;
+    if (frame >= N) frame = LOOP_START;
+    logo.SetImage(frames[frame]);
+  }
+}
+Plymouth.SetRefreshFunction(refresh_callback);
+
+# keep boot messages off the screen
+fun message_callback(text) { }
+Plymouth.SetMessageFunction(message_callback);

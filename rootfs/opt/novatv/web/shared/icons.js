@@ -1,0 +1,36 @@
+// Small inline SVG icon set (stroke icons, 24x24 grid).
+window.ICONS = (() => {
+  const s = (d, extra = '') => `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" ${extra}>${d}</svg>`;
+  return {
+    gear: s('<circle cx="12" cy="12" r="3.2"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/>'),
+    globe: s('<circle cx="12" cy="12" r="9.5"/><path d="M2.5 12h19M12 2.5c2.6 2.8 3.9 6 3.9 9.5s-1.3 6.7-3.9 9.5c-2.6-2.8-3.9-6-3.9-9.5S9.4 5.3 12 2.5z"/>'),
+    wifi: s('<path d="M2 8.8a15 15 0 0 1 20 0M5.5 12.5a10 10 0 0 1 13 0M9 16.2a5 5 0 0 1 6 0"/><circle cx="12" cy="19.6" r=".9" fill="currentColor"/>'),
+    ethernet: s('<rect x="3" y="4" width="18" height="13" rx="2"/><path d="M8 21h8M12 17v4M7 9v3M10.3 9v3M13.7 9v3M17 9v3"/>'),
+    lock: s('<rect x="5" y="11" width="14" height="10" rx="2.2"/><path d="M8 11V7.5a4 4 0 0 1 8 0V11"/>'),
+    check: s('<path d="M4.5 12.5l5 5 10-11"/>'),
+    chevron: s('<path d="M9 5l7 7-7 7"/>'),
+    back: s('<path d="M15 5l-7 7 7 7"/>'),
+    phone: s('<rect x="6.5" y="2.5" width="11" height="19" rx="2.6"/><path d="M10.5 18.5h3"/>'),
+    tv: s('<rect x="2.5" y="4" width="19" height="13" rx="2.2"/><path d="M8 21h8"/>'),
+    play: s('<path d="M7 4.5v15l12-7.5z" fill="currentColor"/>'),
+    playpause: s('<path d="M3.5 5v14l9-7z" fill="currentColor"/><path d="M16 5v14M20.5 5v14"/>'),
+    plus: s('<path d="M12 5v14M5 12h14"/>'),
+    minus: s('<path d="M5 12h14"/>'),
+    mute: s('<path d="M4 9h4l5-4v14l-5-4H4z" fill="currentColor"/><path d="M17 9l5 6M22 9l-5 6"/>'),
+    speaker: s('<path d="M4 9h4l5-4v14l-5-4H4z" fill="currentColor"/><path d="M16.5 8.5a5 5 0 0 1 0 7M19.5 6a8.5 8.5 0 0 1 0 12"/>'),
+    keyboard: s('<rect x="2.5" y="6" width="19" height="12" rx="2.2"/><path d="M6 10h.01M10 10h.01M14 10h.01M18 10h.01M7 14h10"/>'),
+    pointer: s('<path d="M5 3l14 7.5-6.2 1.7L10 18.5z"/>'),
+    power: s('<path d="M12 3v9M6.3 6.3a8 8 0 1 0 11.4 0"/>'),
+    refresh: s('<path d="M20 11a8 8 0 0 0-14.9-3.5M4 4v4h4M4 13a8 8 0 0 0 14.9 3.5M20 20v-4h-4"/>'),
+    info: s('<circle cx="12" cy="12" r="9.5"/><path d="M12 11v6M12 7.5h.01"/>'),
+    pencil: s('<path d="M4 20h4L19 9l-4-4L4 16z"/>'),
+    trash: s('<path d="M4 7h16M9 7V4h6v3M6.5 7l1 13h9l1-13"/>'),
+    up: s('<path d="M6 15l6-6 6 6"/>'),
+    down: s('<path d="M6 9l6 6 6-6"/>'),
+    apps: s('<rect x="3" y="3" width="7.5" height="7.5" rx="2"/><rect x="13.5" y="3" width="7.5" height="7.5" rx="2"/><rect x="3" y="13.5" width="7.5" height="7.5" rx="2"/><rect x="13.5" y="13.5" width="7.5" height="7.5" rx="2"/>'),
+    remote: s('<rect x="7" y="2.5" width="10" height="19" rx="5"/><circle cx="12" cy="8" r="2.2"/><path d="M12 14v.01M12 17.5v.01"/>'),
+    link: s('<path d="M10 14a4.5 4.5 0 0 0 6.4 0l3-3a4.5 4.5 0 0 0-6.4-6.4l-1 1M14 10a4.5 4.5 0 0 0-6.4 0l-3 3a4.5 4.5 0 0 0 6.4 6.4l1-1"/>'),
+    eye: s('<path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/>'),
+    spark: '<svg viewBox="0 0 100 100"><path d="M50 2C52.6 30 70 47.4 98 50 70 52.6 52.6 70 50 98 47.4 70 30 52.6 2 50 30 47.4 47.4 30 50 2Z" fill="currentColor"/></svg>',
+  };
+})();

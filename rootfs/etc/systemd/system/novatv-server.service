@@ -1,0 +1,19 @@
+[Unit]
+Description=NovaTV server (launcher, phone remote, app control)
+After=network.target NetworkManager.service
+Wants=NetworkManager.service
+
+[Service]
+Type=simple
+User=tv
+Group=tv
+Environment=PYTHONUNBUFFERED=1
+Environment=XDG_RUNTIME_DIR=/run/user/@UID@
+ExecStart=/usr/bin/python3 /opt/novatv/server/novatv_server.py
+AmbientCapabilities=CAP_NET_BIND_SERVICE
+StateDirectory=novatv
+Restart=always
+RestartSec=2
+
+[Install]
+WantedBy=multi-user.target

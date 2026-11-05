@@ -1,0 +1,16 @@
+#!/bin/bash
+# NovaTV kiosk session. Started on tty1 by autologin (see ~/.bash_profile).
+# cage is a Wayland kiosk compositor: it shows one fullscreen app, here Chromium.
+# When Chromium exits, cage exits, getty logs in again and this restarts.
+
+# Keyboard layout chosen during setup (written to /etc/default/keyboard)
+if [ -r /etc/default/keyboard ]; then
+  . /etc/default/keyboard
+  export XKB_DEFAULT_LAYOUT="${XKBLAYOUT:-us}"
+  [ -n "${XKBVARIANT:-}" ] && export XKB_DEFAULT_VARIANT="$XKBVARIANT"
+fi
+export XDG_SESSION_TYPE=wayland
+export WLR_LIBINPUT_NO_DEVICES=1   # start fine with no keyboard or mouse plugged in
+export MOZ_ENABLE_WAYLAND=1
+
+exec cage -d -s -- /opt/novatv/bin/novatv-browser >"$HOME/.cache/novatv-session.log" 2>&1

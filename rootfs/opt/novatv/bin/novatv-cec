@@ -1,0 +1,54 @@
+#!/usr/bin/env python3
+"""HDMI-CEC bridge: lets the TV's own remote control NovaTV.
+
+Registers as a playback device, listens for remote button presses
+and forwards them to the NovaTV server like the phone remote does.
+"""
+import json
+import os
+import re
+import subprocess
+import time
+import urllib.request
+
+DEV = os.environ.get("CEC_DEVICE", "/dev/cec0")
+KEYMAP = {
+    "up": "up", "down": "down", "left": "left", "right": "right", "select": "select",
+    "exit": "back", "back": "back", "root menu": "home", "setup menu": "home",
+    "contents menu": "home", "home": "home", "play": "playpause", "pause": "playpause",
+    "pause-play function": "playpause", "play function": "playpause", "pause function": "playpause",
+    "volume up": "volup", "volume down": "voldown", "mute": "mute",
+}
+
+
+def send(key):
+    req = urllib.request.Request("http://127.0.0.1/api/key", data=json.dumps({"k": key}).encode(),
+                                 headers={"Content-Type": "application/json"})
+    try:
+        urllib.request.urlopen(req, timeout=2).read()
+    except Exception as e:  # noqa: BLE001
+        print("send failed:", e, flush=True)
+
+
+def main():
+    while not os.path.exists(DEV):
+        time.sleep(5)
+    subprocess.run(["cec-ctl", "-d", DEV, "--playback", "--osd-name", "NovaTV"], check=False)
+    proc = subprocess.Popen(["cec-ctl", "-d", DEV, "-m"], stdout=subprocess.PIPE, text=True, bufsize=1)
+    pressed = False
+    for line in proc.stdout:
+        if "USER_CONTROL_PRESSED" in line:
+            pressed = True
+            continue
+        if pressed:
+            m = re.search(r"ui-cmd:\s*(.+?)\s*\(0x", line)
+            if m:
+                key = KEYMAP.get(m.group(1).strip().lower())
+                if key:
+                    send(key)
+                pressed = False
+    proc.wait()
+
+
+if __name__ == "__main__":
+    main()

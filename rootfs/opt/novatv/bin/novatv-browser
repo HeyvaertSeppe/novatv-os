@@ -1,0 +1,42 @@
+#!/bin/bash
+# Starts Chromium in kiosk mode showing the NovaTV launcher.
+# Apps open as extra tabs, controlled by the NovaTV server over the DevTools port (localhost only).
+PROFILE="$HOME/.config/novatv-browser"
+mkdir -p "$PROFILE/Default" "$HOME/.cache"
+
+# Wait for the NovaTV server, it serves the launcher page
+for _ in $(seq 1 80); do
+  curl -fs -o /dev/null http://127.0.0.1/tv/ && break
+  sleep 0.25
+done
+
+# Never show "Chromium didn't shut down correctly"
+PREFS="$PROFILE/Default/Preferences"
+[ -f "$PREFS" ] && sed -i 's/"exited_cleanly":false/"exited_cleanly":true/; s/"exit_type":"[^"]*"/"exit_type":"Normal"/' "$PREFS"
+
+CHROME="$(command -v chromium || command -v chromium-browser)"
+
+exec "$CHROME" \
+  --kiosk \
+  --ozone-platform=wayland \
+  --user-data-dir="$PROFILE" \
+  --remote-debugging-address=127.0.0.1 \
+  --remote-debugging-port=9222 \
+  --no-first-run \
+  --no-default-browser-check \
+  --noerrdialogs \
+  --disable-infobars \
+  --disable-session-crashed-bubble \
+  --disable-pinch \
+  --overscroll-history-navigation=0 \
+  --autoplay-policy=no-user-gesture-required \
+  --password-store=basic \
+  --check-for-update-interval=31536000 \
+  --simulate-outdated-no-au='Tue, 31 Dec 2099 23:59:59 GMT' \
+  --enable-gpu-rasterization \
+  --enable-zero-copy \
+  --ignore-gpu-blocklist \
+  --force-dark-mode \
+  --enable-features=OverlayScrollbar,WebUIDarkMode \
+  --disable-features=Translate,MediaRouter,DialMediaRouteProvider,GlobalMediaControls,PrivacySandboxSettings4 \
+  http://127.0.0.1/tv/

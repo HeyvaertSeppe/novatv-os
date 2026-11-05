@@ -1,0 +1,81 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>NovaTV</title>
+<link rel="stylesheet" href="/shared/base.css">
+<link rel="stylesheet" href="/tv/tv.css">
+<style>html,body{background:#000}</style>
+</head>
+<body class="booting">
+
+<!-- ============ HOME ============ -->
+<section id="home" class="screen">
+  <div id="shelf">
+    <div class="art" id="art-a"></div>
+    <div class="art" id="art-b"></div>
+    <div class="shelf-fade"></div>
+  </div>
+  <header id="status">
+    <div id="remote-chip" class="chip hidden"></div>
+    <div id="net-icon"></div>
+    <div id="clock">--:--</div>
+  </header>
+  <div id="topshelf">
+    <div class="ts-kicker" id="ts-kicker"></div>
+    <div class="ts-title" id="ts-title"></div>
+    <div class="ts-tag" id="ts-tag"></div>
+    <div class="ts-hint"><span class="kbd">OK</span> to open</div>
+  </div>
+  <div id="grid-wrap"><div id="grid"></div></div>
+
+  <aside id="pair-card" class="hidden">
+    <div class="pc-qr"><img id="pc-qr" alt=""></div>
+    <div class="pc-text">
+      <div class="pc-title">Use your phone as a remote</div>
+      <div class="pc-sub">Scan with your camera, or open<br><b id="pc-url"></b><br>and enter code <b id="pc-code"></b></div>
+      <div class="pc-hint"><span class="kbd">Back</span> to hide</div>
+    </div>
+  </aside>
+</section>
+
+<!-- ============ SETTINGS ============ -->
+<section id="settings" class="screen hidden">
+  <div class="set-left">
+    <div class="set-icon" id="set-icon"></div>
+    <div class="set-title" id="set-title">Settings</div>
+  </div>
+  <div class="set-right"><div class="set-list" id="set-list"></div></div>
+</section>
+
+<!-- ============ SETUP ============ -->
+<section id="setup" class="screen hidden">
+  <div class="aurora"><i></i><i></i><i></i></div>
+  <div id="setup-stage"></div>
+  <div id="setup-dots"></div>
+</section>
+
+<!-- ============ OVERLAYS ============ -->
+<div id="launch"></div>
+<div id="saver" class="hidden">
+  <div class="aurora big"><i></i><i></i><i></i></div>
+  <div class="saver-clock" id="saver-clock"></div>
+  <div class="saver-date" id="saver-date"></div>
+</div>
+<div id="hud"></div>
+<div id="toast"></div>
+<div id="alert" class="hidden"></div>
+
+<div id="intro">
+  <div class="logo" id="intro-logo">
+    <div class="logo-spark"><div class="flare"></div></div>
+    <div class="logo-word"><span class="w1">nova</span><span class="w2">tv</span></div>
+  </div>
+</div>
+
+<script src="/shared/icons.js"></script>
+<script src="/shared/tiles.js"></script>
+<script src="/tv/tv.js"></script>
+</body>
+</html>

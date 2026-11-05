@@ -1,0 +1,20 @@
+{
+  "TranslateEnabled": false,
+  "DefaultBrowserSettingEnabled": false,
+  "BrowserSignin": 0,
+  "SyncDisabled": true,
+  "MetricsReportingEnabled": false,
+  "PromotionsEnabled": false,
+  "PrivacySandboxPromptEnabled": false,
+  "AutoplayAllowed": true,
+  "PasswordManagerEnabled": true,
+  "BackgroundModeEnabled": false,
+  "DefaultNotificationsSetting": 2,
+  "DefaultGeolocationSetting": 2,
+  "SpellcheckEnabled": false,
+  "HardwareAccelerationModeEnabled": true,
+  "DeveloperToolsAvailability": 1,
+  "FullscreenAllowed": true,
+  "AudioCaptureAllowed": false,
+  "VideoCaptureAllowed": false
+}

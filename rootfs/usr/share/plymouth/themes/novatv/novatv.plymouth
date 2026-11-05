@@ -1,0 +1,8 @@
+[Plymouth Theme]
+Name=NovaTV
+Description=NovaTV boot animation
+ModuleName=script
+
+[script]
+ImageDir=/usr/share/plymouth/themes/novatv
+ScriptFile=/usr/share/plymouth/themes/novatv/novatv.script

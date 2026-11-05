@@ -1,0 +1,36 @@
+#!/bin/bash
+# Root helper for the NovaTV server (runs as user "tv" through sudo, see /etc/sudoers.d/novatv).
+# Only the actions below are allowed, each with a strict argument check.
+set -euo pipefail
+case "${1:-}" in
+  wifi-country)
+    [[ "${2:-}" =~ ^[A-Z]{2}$ ]] || exit 2
+    raspi-config nonint do_wifi_country "$2" >/dev/null 2>&1 || iw reg set "$2" || true
+    rfkill unblock wifi || true
+    nmcli radio wifi on || true
+    ;;
+  timezone)
+    [[ "${2:-}" =~ ^[A-Za-z_]+/[A-Za-z_]+$ ]] && [ -f "/usr/share/zoneinfo/$2" ] || exit 2
+    timedatectl set-timezone "$2"
+    ;;
+  keyboard)
+    [[ "${2:-}" =~ ^[a-z]{2,3}$ ]] || exit 2
+    if grep -q '^XKBLAYOUT=' /etc/default/keyboard 2>/dev/null; then
+      sed -i "s/^XKBLAYOUT=.*/XKBLAYOUT=\"$2\"/; s/^XKBVARIANT=.*/XKBVARIANT=\"\"/" /etc/default/keyboard
+    else
+      printf 'XKBMODEL="pc105"\nXKBLAYOUT="%s"\nXKBVARIANT=""\nXKBOPTIONS=""\n' "$2" > /etc/default/keyboard
+    fi
+    ;;
+  hostname)
+    [[ "${2:-}" =~ ^[a-z0-9][a-z0-9-]{0,29}$ ]] || exit 2
+    hostnamectl set-hostname "$2"
+    sed -i "s/^127\.0\.1\.1.*/127.0.1.1\t$2/" /etc/hosts
+    systemctl try-restart avahi-daemon.service || true
+    ;;
+  restart-ui)
+    pkill -u tv -f -- "--user-data-dir=/home/tv/.config/novatv-browser" || systemctl restart getty@tty1.service
+    ;;
+  reboot) systemctl reboot ;;
+  poweroff) systemctl poweroff ;;
+  *) echo "unknown action" >&2; exit 2 ;;
+esac

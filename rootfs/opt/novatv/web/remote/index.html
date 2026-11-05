@@ -1,0 +1,158 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+<meta name="theme-color" content="#000000">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="NovaTV">
+<title>NovaTV Remote</title>
+<link rel="manifest" href="/remote/manifest.webmanifest">
+<link rel="apple-touch-icon" href="/remote/icon-180.png">
+<link rel="icon" href="/remote/icon-180.png">
+<link rel="stylesheet" href="/shared/base.css">
+<link rel="stylesheet" href="/remote/remote.css">
+</head>
+<body>
+
+<!-- pairing -->
+<section id="pair" class="hidden">
+  <div class="pair-spark"></div>
+  <h1>Pair with your TV</h1>
+  <p>Enter the 6-digit code shown on the TV<br>under <b>Settings → Remote</b>.</p>
+  <input id="pair-input" inputmode="numeric" autocomplete="one-time-code" maxlength="6" placeholder="000000">
+  <div id="pair-err" class="err"></div>
+  <button id="pair-btn" class="btn-primary">Pair</button>
+</section>
+
+<!-- app shell -->
+<section id="shell" class="hidden">
+  <header id="top">
+    <div class="tv-name"><i id="dot"></i><span id="tv-name">NovaTV</span></div>
+    <div id="now" class="now"></div>
+  </header>
+
+  <!-- REMOTE -->
+  <main id="v-remote" class="view">
+    <div class="modes" id="modes">
+      <button data-mode="swipe" class="on">Touch</button>
+      <button data-mode="dpad">D-pad</button>
+      <button data-mode="pointer">Mouse</button>
+      <i class="mode-pill"></i>
+    </div>
+
+    <div id="pad" class="pad">
+      <div class="pad-hint" id="pad-hint">Swipe to move · Tap to select</div>
+      <div class="touch-dot" id="touch-dot"></div>
+      <div class="dpad hidden" id="dpad">
+        <button class="dp up" data-k="up"></button>
+        <button class="dp right" data-k="right"></button>
+        <button class="dp down" data-k="down"></button>
+        <button class="dp left" data-k="left"></button>
+        <button class="dp-ok" data-k="select">OK</button>
+      </div>
+    </div>
+
+    <div class="buttons">
+      <button class="rb" data-k="back" aria-label="Back"></button>
+      <button class="rb" data-k="home" aria-label="Home"></button>
+      <div class="vol">
+        <button data-k="volup" aria-label="Volume up"></button>
+        <button data-k="voldown" aria-label="Volume down"></button>
+      </div>
+      <button class="rb" data-k="playpause" aria-label="Play or pause"></button>
+      <button class="rb" data-k="mute" aria-label="Mute"></button>
+    </div>
+
+    <button id="kb-btn" class="kb-btn"><span></span>Keyboard</button>
+  </main>
+
+  <!-- APPS -->
+  <main id="v-apps" class="view hidden">
+    <div class="url-bar">
+      <input id="url-input" type="url" inputmode="url" placeholder="Open a website…" autocapitalize="off" autocomplete="off">
+      <button id="url-go" aria-label="Open"></button>
+    </div>
+    <div class="section-head"><h2>Apps</h2><button id="edit-toggle" class="link">Edit</button></div>
+    <div id="app-grid" class="app-grid"></div>
+  </main>
+
+  <!-- SETTINGS -->
+  <main id="v-settings" class="view hidden"><div id="settings-list"></div></main>
+
+  <nav id="tabs">
+    <button data-tab="remote" class="on"><span></span>Remote</button>
+    <button data-tab="apps"><span></span>Apps</button>
+    <button data-tab="settings"><span></span>Settings</button>
+  </nav>
+</section>
+
+<!-- keyboard sheet -->
+<div id="kb-sheet" class="sheet hidden">
+  <div class="sheet-card">
+    <div class="sheet-grab"></div>
+    <div class="sheet-title">Type on TV</div>
+    <input id="kb-input" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="Start typing…">
+    <div class="kb-actions">
+      <button id="kb-clear">Clear</button>
+      <button id="kb-enter" class="btn-primary">Enter</button>
+      <button id="kb-done">Done</button>
+    </div>
+  </div>
+</div>
+
+<!-- app editor sheet -->
+<div id="ed-sheet" class="sheet hidden">
+  <div class="sheet-card tall">
+    <div class="sheet-grab"></div>
+    <div class="ed-head">
+      <button id="ed-cancel" class="link">Cancel</button>
+      <div class="sheet-title" id="ed-title">Add App</div>
+      <button id="ed-save" class="link bold">Save</button>
+    </div>
+    <div class="ed-preview"><div class="ed-tile" id="ed-tile"></div></div>
+    <div class="form">
+      <label>Name<input id="ed-name" placeholder="My App"></label>
+      <label>Web address<input id="ed-url" type="url" inputmode="url" autocapitalize="off" placeholder="https://"></label>
+      <label>Tile text<input id="ed-label" placeholder="Shown on the tile"></label>
+      <label>Icon image URL <small>optional</small><input id="ed-icon" type="url" inputmode="url" autocapitalize="off" placeholder="https://…/logo.png"></label>
+      <div class="lbl">Colour</div>
+      <div class="swatches" id="ed-swatches"></div>
+      <div class="row2">
+        <label class="color">Top<input id="ed-c1" type="color"></label>
+        <label class="color">Bottom<input id="ed-c2" type="color"></label>
+        <label class="color">Text<input id="ed-fg" type="color"></label>
+      </div>
+      <label>Browser identity
+        <select id="ed-ua">
+          <option value="default">Standard (most sites)</option>
+          <option value="chromeos">ChromeOS (Netflix, Prime, Disney+, HBO Max)</option>
+          <option value="smarttv">Smart TV (YouTube TV interface)</option>
+          <option value="desktop">Desktop PC</option>
+        </select>
+      </label>
+      <label>Back button
+        <select id="ed-back">
+          <option value="smart">Go back a page, then Home</option>
+          <option value="escape">Send Escape key (TV-style sites)</option>
+        </select>
+      </label>
+      <label>Description<input id="ed-tag" placeholder="Shown on the home screen"></label>
+      <div class="ed-move" id="ed-move">
+        <button id="ed-left">Move earlier</button>
+        <button id="ed-right">Move later</button>
+      </div>
+      <button id="ed-delete" class="danger-btn">Delete App</button>
+    </div>
+  </div>
+</div>
+
+<div id="toast"></div>
+
+<script src="/shared/icons.js"></script>
+<script src="/shared/tiles.js"></script>
+<script src="/remote/remote.js"></script>
+</body>
+</html>
