@@ -1,13 +1,17 @@
 #!/bin/bash
 # Writes a short diagnostic report to the SD card's boot partition (novatv-logs/), so a
-# problem can be read on any computer. "boot" runs 45 s after every start, "rescue" when
+# problem can be read on any computer. "boot" runs 25 s after every start and then every minute, "rescue" when
 # the interface fails. Older reports are kept: last 3 of each kind.
 KIND="${1:-boot}"
 DIR=/boot/firmware/novatv-logs
 [ -d /boot/firmware ] || exit 0
 mkdir -p "$DIR" || exit 0
-for i in 2 1; do [ -f "$DIR/$KIND-$i.txt" ] && mv -f "$DIR/$KIND-$i.txt" "$DIR/$KIND-$((i + 1)).txt"; done
-[ -f "$DIR/$KIND.txt" ] && mv -f "$DIR/$KIND.txt" "$DIR/$KIND-1.txt"
+# keep the reports of earlier starts: rotate once per start, then just refresh this one
+if [ ! -e "/run/novatv-report-$KIND" ]; then
+  for i in 2 1; do [ -f "$DIR/$KIND-$i.txt" ] && mv -f "$DIR/$KIND-$i.txt" "$DIR/$KIND-$((i + 1)).txt"; done
+  [ -f "$DIR/$KIND.txt" ] && mv -f "$DIR/$KIND.txt" "$DIR/$KIND-1.txt"
+  touch "/run/novatv-report-$KIND"
+fi
 OUT="$DIR/$KIND.txt"
 sec() { echo; echo "===== $1"; }
 {

@@ -44,6 +44,7 @@ fi
 MARK=/var/lib/novatv/ui-starting
 TRIES=$(cat "$MARK" 2>/dev/null || echo 0)
 echo $((TRIES + 1)) > "$MARK" 2>/dev/null
+sync "$MARK" 2>/dev/null || sync   # must survive a sudden reset, or the fallback never kicks in
 rm -f "$XDG_RUNTIME_DIR/novatv-ready"
 if [ "$TRIES" -lt 2 ]; then
   export CAGE_KEEP_MODE=1
