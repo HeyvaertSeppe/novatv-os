@@ -2,6 +2,11 @@ name: Build NovaTV image
 
 on:
   workflow_dispatch:
+    inputs:
+      version:
+        description: "Release version (creates tag v<version>)"
+        required: true
+        default: "1.0.0"
   push:
     tags: ["v*"]
 
@@ -31,8 +36,19 @@ jobs:
           path: out/*
           compression-level: 0
 
-      - name: Attach to release
-        if: startsWith(github.ref, 'refs/tags/')
+      - name: Publish release
         uses: softprops/action-gh-release@v2
         with:
+          tag_name: ${{ github.event_name == 'workflow_dispatch' && format('v{0}', inputs.version) || github.ref_name }}
+          name: NovaTV OS ${{ github.event_name == 'workflow_dispatch' && inputs.version || github.ref_name }}
+          target_commitish: ${{ github.sha }}
+          body: |
+            Flashable image for the Raspberry Pi 5.
+
+            1. Download `novatv-os-*.img.xz` below.
+            2. Flash it to a microSD card (16 GB or more) with balenaEtcher or Raspberry Pi Imager
+               (don't use Imager's OS customisation).
+            3. Boot the Pi with a USB keyboard and mouse plugged in, and follow the setup on the TV.
+
+            See the README for features, Widevine/DRM notes and troubleshooting.
           files: out/*
