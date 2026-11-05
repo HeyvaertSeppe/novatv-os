@@ -13,7 +13,7 @@ SERVER_URL_FALLBACK=https://dl.strem.io/server/v4.20.16/desktop/server.js
 RUNTIME=(
   qml-module-qtwebengine qml-module-qtwebchannel qml-module-qt-labs-platform qml-module-qt-labs-settings
   qml-module-qtquick-controls qml-module-qtquick-controls2 qml-module-qtquick-dialogs qml-module-qtquick-window2
-  qtwayland5 nodejs ca-certificates
+  qtwayland5 nodejs ca-certificates libmpv2
   wtype wlrctl          # remote control of native apps (virtual keyboard / pointer)
 )
 # only needed to compile (removed afterwards)
@@ -41,7 +41,11 @@ ln -sf "$(command -v node)" "$PREFIX/node"
 install -m 644 images/stremio.svg "$PREFIX/stremio.svg" 2>/dev/null || true
 
 # keep every package that provides a library the binary links to, then drop the build tools
-mapfile -t LIBPKGS < <(ldd "$PREFIX/stremio" | awk '/=> \//{print $3}' | xargs -r dpkg -S 2>/dev/null | cut -d: -f1 | sort -u)
+owner() {   # package that owns a library (handles /lib vs /usr/lib on merged-/usr systems)
+  local f; f="$(realpath "$1")"
+  dpkg -S "$f" 2>/dev/null || dpkg -S "/usr${f#/usr}" 2>/dev/null || dpkg -S "${f#/usr}" 2>/dev/null || true
+}
+mapfile -t LIBPKGS < <(ldd "$PREFIX/stremio" | awk '/=> \//{print $3}' | while read -r l; do owner "$l"; done | cut -d: -f1 | sort -u)
 apt-mark manual "${RUNTIME[@]}" "${LIBPKGS[@]}" >/dev/null
 apt-get purge -y "${BUILD[@]}" >/dev/null || true
 apt-get autoremove -y --purge >/dev/null || true
