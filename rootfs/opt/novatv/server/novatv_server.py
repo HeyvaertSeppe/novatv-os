@@ -564,6 +564,58 @@ class Browser:
 
 # --------------------------------------------------------------------------- native apps
 
+class PageDevTools:
+    """DevTools connection to a single web page (used for Qt WebEngine inside native apps)."""
+
+    def __init__(self):
+        self.ws = None
+        self.session = None
+        self.msg_id = 0
+        self.pending = {}
+
+    @property
+    def ok(self):
+        return self.ws is not None and not self.ws.closed
+
+    async def connect(self, ws_url):
+        self.session = self.session or ClientSession()
+        self.ws = await self.session.ws_connect(ws_url, max_msg_size=0)
+        asyncio.create_task(self._reader(self.ws))
+
+    async def _reader(self, ws):
+        async for msg in ws:
+            if msg.type != WSMsgType.TEXT:
+                continue
+            data = json.loads(msg.data)
+            fut = self.pending.pop(data.get("id"), None)
+            if fut and not fut.done():
+                fut.set_result(data.get("result", {}))
+        for f in self.pending.values():
+            if not f.done():
+                f.cancel()
+        self.pending.clear()
+
+    async def call(self, method, params=None, timeout=5):
+        if not self.ok:
+            raise RuntimeError("not connected")
+        self.msg_id += 1
+        fut = asyncio.get_running_loop().create_future()
+        self.pending[self.msg_id] = fut
+        await self.ws.send_str(json.dumps({"id": self.msg_id, "method": method, "params": params or {}}))
+        return await asyncio.wait_for(fut, timeout)
+
+    async def evaluate(self, expr):
+        r = await self.call("Runtime.evaluate", {"expression": expr, "returnByValue": True})
+        return r.get("result", {}).get("value")
+
+    async def close(self):
+        if self.ws:
+            await self.ws.close()
+        if self.session:
+            await self.session.close()
+        self.ws = self.session = None
+
+
 class NativeApps:
     """Runs native Linux apps (e.g. Stremio) on top of the launcher, in the TV's Wayland session.
 
@@ -575,14 +627,22 @@ class NativeApps:
                "tab": "Tab", "pageup": "Prior", "pagedown": "Next", "f": "f",
                **{str(d): str(d) for d in range(10)}}
 
+    DEVTOOLS_PORT = 9334
+
     def __init__(self, server):
         self.srv = server
         self.proc = None
         self.app_id = None
+        self.page = PageDevTools()     # the app's web view, when it has one (Stremio does)
+        self.pointer_pos = None
 
     @property
     def running(self):
         return self.app_id is not None
+
+    @property
+    def web(self):
+        return self.page.ok
 
     @staticmethod
     def env():
@@ -593,7 +653,9 @@ class NativeApps:
             socks = sorted(x for x in glob.glob(os.path.join(e["XDG_RUNTIME_DIR"], "wayland-*")) if not x.endswith(".lock"))
             if socks:
                 e["WAYLAND_DISPLAY"] = os.path.basename(socks[0])
-        e.update(QT_QPA_PLATFORM="wayland", QT_WAYLAND_DISABLE_WINDOWDECORATION="1", HOME=str(Path.home()))
+        e.update(QT_QPA_PLATFORM="wayland", QT_WAYLAND_DISABLE_WINDOWDECORATION="1", HOME=str(Path.home()),
+                 # lets NovaTV show its on-screen keyboard and volume display inside the app (localhost only)
+                 QTWEBENGINE_REMOTE_DEBUGGING=f"127.0.0.1:{NativeApps.DEVTOOLS_PORT}")
         return e
 
     async def launch(self, app_id, command):
@@ -610,6 +672,33 @@ class NativeApps:
             *argv, cwd=os.path.dirname(argv[0]), env=self.env(), stdin=asyncio.subprocess.DEVNULL,
             stdout=logf, stderr=logf, start_new_session=True)
         asyncio.create_task(self._watch(self.proc))
+        asyncio.create_task(self._attach_web(self.proc))
+
+    async def _attach_web(self, proc):
+        """Connect to the app's web view and inject NovaTV's keyboard + overlays (retries while it starts)."""
+        script = self.srv.browser.inject_js
+        while self.proc is proc and proc.returncode is None:
+            if not self.page.ok:
+                try:
+                    async with ClientSession() as http:
+                        async with http.get(f"http://127.0.0.1:{self.DEVTOOLS_PORT}/json/list", timeout=2) as r:
+                            targets = await r.json(content_type=None)
+                    page = next((t for t in targets if t.get("type") == "page" and t.get("url", "").startswith("http")
+                                 and t.get("webSocketDebuggerUrl")), None)
+                    if page:
+                        await self.page.connect(page["webSocketDebuggerUrl"])
+                        await self.page.call("Page.enable")
+                        try:   # the app's window has the focus on the TV; make sure the page knows it
+                            await self.page.call("Emulation.setFocusEmulationEnabled", {"enabled": True})
+                        except Exception:  # noqa: BLE001
+                            pass
+                        await self.page.call("Page.addScriptToEvaluateOnNewDocument", {"source": script})
+                        await self.page.evaluate(script)   # the page is already loaded
+                        log.info("attached to %s web view", self.app_id)
+                except Exception as e:  # noqa: BLE001
+                    log.debug("web view not ready: %s", e)
+            await asyncio.sleep(2)
+        await self.page.close()
 
     async def _watch(self, proc):
         await proc.wait()
@@ -620,6 +709,11 @@ class NativeApps:
 
     async def stop(self):
         proc, self.proc, self.app_id = self.proc, None, None
+        self.pointer_pos = None
+        try:
+            await self.page.close()
+        except Exception:  # noqa: BLE001
+            pass
         if not proc or proc.returncode is not None:
             return
         import signal
@@ -636,18 +730,51 @@ class NativeApps:
         if DRY_RUN:
             log.info("dry-run: %s", " ".join(cmd))
             return
-        p = await asyncio.create_subprocess_exec(*cmd, env=self.env(), stdout=asyncio.subprocess.DEVNULL,
-                                                 stderr=asyncio.subprocess.DEVNULL)
-        await p.wait()
+        try:
+            p = await asyncio.create_subprocess_exec(*cmd, env=self.env(), stdout=asyncio.subprocess.DEVNULL,
+                                                     stderr=asyncio.subprocess.DEVNULL)
+            await p.wait()
+        except OSError as e:
+            log.warning("%s: %s", cmd[0], e)
 
     async def key(self, name):
+        if self.web:
+            try:   # NovaTV's keyboard open inside the app: the remote drives it
+                if await self.page.evaluate(f"!!(window.__novaOSK && window.__novaOSK.key({json.dumps(name)}))"):
+                    return
+            except Exception:  # noqa: BLE001
+                pass
         ks = self.KEYSYMS.get(name)
         if ks:
             await self._run("wtype", "-k", ks)
 
     async def text(self, t):
-        if t:
-            await self._run("wtype", "--", t)
+        if not t:
+            return
+        if self.web:
+            try:
+                if await self.page.evaluate(f"!!(window.__novaOSK && window.__novaOSK.type({json.dumps(t)}))"):
+                    return
+            except Exception:  # noqa: BLE001
+                pass
+        await self._run("wtype", "--", t)
+
+    async def back(self):
+        """Back closes NovaTV's keyboard first, otherwise it is the app's own back (Escape)."""
+        if self.web:
+            try:
+                if await self.page.evaluate("!!(window.__novaOSK && window.__novaOSK.back())"):
+                    return
+            except Exception:  # noqa: BLE001
+                pass
+        await self.key("escape")
+
+    async def hud(self, kind, value):
+        if self.web:
+            try:
+                await self.page.evaluate(f"window.__novatv&&window.__novatv.hud({json.dumps(kind)},{json.dumps(value)})")
+            except Exception:  # noqa: BLE001
+                pass
 
     async def pointer(self, dx, dy):
         await self._run("wlrctl", "pointer", "move", str(int(dx)), str(int(dy)))
@@ -745,9 +872,15 @@ class Server:
                               "volume": self.audio.volume, "ip": self.ip,
                               "remotes": sum(1 for r in self.clients.values() if r == "remote")})
 
+    async def hud(self, kind, value):
+        if self.native.running:
+            await self.native.hud(kind, value)
+        else:
+            await self.browser.hud(kind, value)
+
     async def toast(self, text):
         await self.broadcast({"t": "toast", "text": text}, role="tv")
-        await self.browser.hud("toast", text)
+        await self.hud("toast", text)
 
     # ---- actions shared by HTTP + websocket
     async def launch(self, app_id):
@@ -850,7 +983,7 @@ class Server:
             if k in ("home", "volup", "voldown", "mute", "standby"):
                 return False            # handled as usual
             if k == "back":
-                await n.key("escape")
+                await n.back()
             elif k == "playpause":
                 await n.key("space")
             else:

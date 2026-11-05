@@ -238,7 +238,7 @@ class Audio:
             await self.read_volume()
         v = dict(self.volume, output=self.output_label(), bluetooth=self.active_is_bt())
         await self.srv.broadcast({"t": "volume", **v})
-        await self.srv.browser.hud("volume", v)
+        await self.srv.hud("volume", v)
         return v
 
     # ---- equalizer

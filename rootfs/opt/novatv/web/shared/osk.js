@@ -273,5 +273,19 @@
     state: () => ({ open, mode, key: rows[pos[0]] && rows[pos[0]][pos[1]] ? rows[pos[0]][pos[1]].k : null }),
     back() { if (open) { hide(); return true; } return false; },
     show() { const t = deepActive(); if (editable(t)) { show(t); return true; } return false; },
+    // remote keys while the keyboard is open (used for native apps such as Stremio)
+    key(name) {
+      if (!open) return false;
+      const m = { up: [-1, 0], down: [1, 0], left: [0, -1], right: [0, 1] };
+      if (m[name]) move(...m[name]);
+      else if (name === 'select' || name === 'enter') press();
+      else if (name === 'escape' || name === 'back') hide();
+      else if (name === 'backspace') backspace();
+      else if (/^[0-9]$/.test(name)) insert(name);
+      else return false;
+      return true;
+    },
+    // text from the phone into the focused field
+    type(text) { const t = deepActive(); if (!editable(t)) return false; target = t; insert(String(text)); return true; },
   };
 })();
