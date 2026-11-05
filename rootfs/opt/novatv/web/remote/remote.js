@@ -59,7 +59,11 @@ function connect() {
   };
   ws.onmessage = (ev) => {
     const m = JSON.parse(ev.data);
-    if (m.t === 'hello') { R.info = m; R.settings = m.settings; R.apps = m.apps; R.active = m.active_app; render(); }
+    if (m.t === 'hello') { R.info = m; R.settings = m.settings; R.apps = m.apps; R.active = m.active_app; R.audio = m.audio || {}; R.bt = m.bt || { devices: [] }; render(); renderAudio(); }
+    else if (m.t === 'audio') { const { t, ...a } = m; R.audio = a; renderAudio(); }
+    else if (m.t === 'eq') { R.audio.eq = m.eq; R.audio.preset = m.preset; if (!A.dragging) updateEqUI(); }
+    else if (m.t === 'bt') { const { t, ...b } = m; R.bt = b; renderBt(); }
+    else if (m.t === 'volume') { R.audio.volume = { level: m.level, muted: m.muted }; if (!A.vdrag) updateVolume(); if ($('#v-remote').offsetParent) toast(m.muted ? 'Muted' : `Volume ${m.level}% · ${m.output || ''}`); }
     else if (m.t === 'state') { R.active = m.active_app; renderNow(); renderApps(); }
     else if (m.t === 'apps') { R.apps = m.apps; renderApps(); }
     else if (m.t === 'settings') { R.settings = m.settings; render(); }
@@ -91,11 +95,12 @@ function renderNow() {
 
 /* ---------- tabs */
 $$('#tabs button').forEach((b) => {
-  b.querySelector('span').innerHTML = I[{ remote: 'remote', apps: 'apps', settings: 'gear' }[b.dataset.tab]];
+  b.querySelector('span').innerHTML = I[{ remote: 'remote', apps: 'apps', audio: 'sliders', settings: 'gear' }[b.dataset.tab]];
   b.onclick = () => {
     vibe(5);
     $$('#tabs button').forEach((x) => x.classList.toggle('on', x === b));
     $$('.view').forEach((v) => v.classList.toggle('hidden', v.id !== `v-${b.dataset.tab}`));
+    if (b.dataset.tab === 'audio') renderAudio();
   };
 });
 function showTab(t) { $(`#tabs button[data-tab="${t}"]`).click(); }
@@ -394,6 +399,7 @@ function renderSettings() {
     <div class="group-title">Display</div>
     <div class="group">
       <label class="item"><span class="k">Screen saver</span><select id="s-ss">${ss}</select></label>
+      <label class="item"><span class="k">Screen saver style</span><select id="s-sst"><option value="gradient" ${s.screensaver_style !== 'black' ? 'selected' : ''}>Dark gradient</option><option value="black" ${s.screensaver_style === 'black' ? 'selected' : ''}>Black</option></select></label>
       <label class="item"><span class="k">Apps kept open</span><select id="s-bg">${bg}</select></label>
     </div>
     <div class="group-title">Apps</div>
@@ -416,6 +422,7 @@ function renderSettings() {
   $('#s-name').addEventListener('keydown', (e) => { if (e.key === 'Enter') e.target.blur(); });
   $('#s-ss').addEventListener('change', (e) => save({ screensaver_minutes: +e.target.value }));
   $('#s-bg').addEventListener('change', (e) => save({ keep_background: +e.target.value }));
+  $('#s-sst').addEventListener('change', (e) => save({ screensaver_style: e.target.value }));
   $('#s-reset-apps').onclick = async () => { if (confirm('Replace your app list with the default apps?')) { await api('/api/apps/reset', {}); toast('Default apps restored'); } };
   $('#s-forget').onclick = async () => { if (confirm('Sign out every other phone and create a new pairing code?')) { await api('/api/repair', {}); toast('Other phones signed out'); } };
   $$('[data-sys]').forEach((b) => (b.onclick = async () => {
@@ -424,6 +431,221 @@ function renderSettings() {
     await api(`/api/system/${b.dataset.sys}`, {});
     toast(`${label}…`);
   }));
+}
+
+/* ================================================================ audio tab */
+const A = { dragging: false, vdrag: false, built: false, killPrev: {} };
+R.audio = {}; R.bt = { devices: [] };
+
+function renderAudio() {
+  if (!A.built) buildAudio();
+  updateVolume();
+  renderOutputs();
+  renderBt();
+  renderPresets();
+  updateEqUI();
+}
+
+function updateVolume() {
+  const a = R.audio, v = a.volume || { level: 0, muted: false };
+  $('.vol-card').classList.toggle('bt', !!a.active_bluetooth);
+  $('#vol-icon').innerHTML = a.active_bluetooth ? I.bluetooth : I.speaker;
+  $('#vol-name').textContent = a.active_name || 'TV';
+  $('#vfill').style.width = `${v.muted ? 0 : v.level}%`;
+  $('#vnum').textContent = v.muted ? 'Muted' : v.level;
+  $('#vol-mute').classList.toggle('on', !!v.muted);
+}
+
+function renderOutputs() {
+  const a = R.audio, list = $('#out-list');
+  const rows = [{ name: 'auto', description: 'Automatic', sub: 'Bluetooth speaker when connected' }, ...(a.outputs || [])];
+  list.innerHTML = rows.map((o) => `<button class="item" data-out="${esc(o.name)}">
+      <span class="ic">${o.name === 'auto' ? I.sliders : o.bluetooth ? I.bluetooth : I.tv}</span>
+      <span class="k">${esc(o.description)}${o.name !== 'auto' && a.active === o.name ? ' <span class="badge2 on">· playing</span>' : ''}</span>
+      ${a.output_mode === o.name ? '<span class="check">✓</span>' : ''}</button>`).join('');
+  $$('[data-out]', list).forEach((b) => (b.onclick = async () => {
+    vibe();
+    try { R.audio = { ...R.audio, ...(await api('/api/audio/output', { name: b.dataset.out })) }; renderOutputs(); updateVolume(); } catch (e) { toast('Not available'); }
+  }));
+}
+
+const BUSY = { pairing: 'Pairing…', connecting: 'Connecting…', trusting: 'Connecting…', disconnecting: 'Disconnecting…', removing: 'Removing…' };
+function renderBt() {
+  const b = R.bt || { devices: [] };
+  $('#bt-scan').innerHTML = b.scanning ? '<span class="spin"></span>Searching' : 'Search';
+  const list = $('#bt-list');
+  if (b.available === false) { list.innerHTML = '<div class="item"><span class="k" style="color:var(--fg2)">Bluetooth is not available</span></div>'; return; }
+  const devs = b.devices || [];
+  if (!devs.length) { list.innerHTML = `<div class="item"><span class="k" style="color:var(--fg2)">${b.scanning ? 'Looking for speakers…' : 'No devices yet. Tap Search.'}</span></div>`; return; }
+  list.innerHTML = devs.map((d) => `<div class="item" data-mac="${d.mac}">
+      <span class="ic">${(d.icon || '').includes('head') ? I.headphones : I.speakerbox}</span>
+      <span class="k">${esc(d.name)}<br><span class="badge2 ${d.connected ? 'on' : ''}">${d.busy ? `<span class="spin"></span>${BUSY[d.busy] || '…'}` : d.connected ? 'Connected' : d.paired ? 'Paired · tap to connect' : 'Tap to pair'}</span></span>
+      ${d.paired ? '<button class="more">···</button>' : ''}</div>`).join('');
+  $$('[data-mac]', list).forEach((row) => {
+    const d = devs.find((x) => x.mac === row.dataset.mac);
+    row.onclick = (e) => {
+      vibe();
+      if (e.target.closest('.more')) {
+        actionSheet(d.name, [
+          d.connected ? { label: 'Disconnect', act: () => api('/api/bt/disconnect', { mac: d.mac }) }
+                      : { label: 'Connect', act: () => { api('/api/bt/connect', { mac: d.mac }); toast(`Connecting to ${d.name}…`); } },
+          { label: 'Forget This Device', danger: true, act: () => api('/api/bt/forget', { mac: d.mac }) },
+        ]);
+        return;
+      }
+      if (d.busy) return;
+      if (!d.paired) { api('/api/bt/pair', { mac: d.mac }); toast(`Pairing with ${d.name}…`); }
+      else if (!d.connected) { api('/api/bt/connect', { mac: d.mac }); toast(`Connecting to ${d.name}…`); }
+      else api('/api/bt/disconnect', { mac: d.mac });
+    };
+  });
+}
+
+function actionSheet(title, actions) {
+  const s = document.createElement('div');
+  s.className = 'sheet';
+  s.innerHTML = `<div class="sheet-card"><div class="sheet-grab"></div><div class="sheet-title">${esc(title)}</div><div class="acts"></div></div>`;
+  const acts = $('.acts', s);
+  [...actions, { label: 'Cancel', cancel: true }].forEach((a) => {
+    const b = document.createElement('button');
+    b.className = `act${a.danger ? ' danger' : ''}${a.cancel ? ' cancel' : ''}`;
+    b.textContent = a.label;
+    b.onclick = () => { vibe(); s.remove(); if (a.act) a.act(); };
+    acts.appendChild(b);
+  });
+  s.addEventListener('click', (e) => { if (e.target === s) s.remove(); });
+  document.body.appendChild(s);
+}
+
+function renderPresets() {
+  const a = R.audio, p = a.presets || { builtin: [], user: [] };
+  const box = $('#m-presets');
+  box.innerHTML = [...p.builtin, ...p.user].map((n) => `<button class="${p.user.includes(n) ? 'user' : ''} ${a.preset === n ? 'sel' : ''}" data-p="${esc(n)}">${esc(n)}</button>`).join('');
+  $$('[data-p]', box).forEach((b) => (b.onclick = async () => {
+    vibe();
+    const n = b.dataset.p;
+    if (p.user.includes(n) && a.preset === n) {
+      if (confirm(`Delete the preset “${n}”?`)) await api('/api/audio/preset', { action: 'delete', name: n });
+      return;
+    }
+    await api('/api/audio/preset', { name: n });
+  }));
+}
+
+function updateEqUI() {
+  const a = R.audio, eq = a.eq;
+  if (!eq || !A.built) return;
+  $('#eq-on').checked = !!eq.enabled;
+  $('#eq-card').classList.toggle('off', !eq.enabled);
+  $('#m-mixer').style.opacity = eq.enabled ? 1 : 0.45;
+  $$('#m-presets button').forEach((b) => b.classList.toggle('sel', b.dataset.p === a.preset));
+  $$('.mband').forEach((b, i) => {
+    const v = eq.bands[i], pct = (v - EQ.BAND_MIN) / (EQ.BAND_MAX - EQ.BAND_MIN);
+    $('.th', b).style.top = `${(1 - pct) * 100}%`;
+    const f = $('.f', b);
+    f.style.top = `${Math.min(50, (1 - pct) * 100)}%`;
+    f.style.bottom = `${Math.min(50, pct * 100)}%`;
+    $('.v', b).textContent = `${v > 0 ? '+' : ''}${Math.round(v)}`;
+  });
+  $$('.mknob').forEach((k) => {
+    const v = eq[k.dataset.key];
+    EQ.setKnob(k, v);
+    $('.r', k).textContent = EQ.fmt(v, true);
+    $('.kill', k).classList.toggle('on', v <= EQ.ISO_MIN + 0.01);
+  });
+  EQ.draw($('#m-curve'), eq, { glow: 8, width: 2.5, range: 15 });
+}
+
+let eqT = 0, pendingEq = null;
+function sendEq(upd) {
+  const eq = R.audio.eq;
+  if ('band' in upd) eq.bands[upd.band] = upd.value;
+  for (const k of ['low', 'mid', 'high', 'enabled']) if (k in upd) eq[k] = upd[k];
+  R.audio.preset = 'Custom';
+  updateEqUI();
+  pendingEq = { ...(pendingEq || {}), ...upd };
+  if (!eqT) eqT = setTimeout(() => { send({ t: 'eq', ...pendingEq }); pendingEq = null; eqT = 0; }, 35);
+}
+
+function buildAudio() {
+  A.built = true;
+  $('#vol-mute').innerHTML = I.mute;
+  $('#vol-mute').onclick = () => { vibe(); send({ t: 'key', k: 'mute' }); };
+  // volume slider
+  const vs = $('#vslider');
+  let vt = 0;
+  const setV = (x) => {
+    const r = vs.getBoundingClientRect();
+    const level = Math.round(Math.max(0, Math.min(1, (x - r.left) / r.width)) * 100);
+    R.audio.volume = { level, muted: false };
+    updateVolume();
+    clearTimeout(vt);
+    vt = setTimeout(() => send({ t: 'volume_set', level }), 40);
+  };
+  vs.addEventListener('pointerdown', (e) => { A.vdrag = true; vs.classList.add('drag'); vs.setPointerCapture(e.pointerId); setV(e.clientX); });
+  vs.addEventListener('pointermove', (e) => { if (A.vdrag) setV(e.clientX); });
+  const vEnd = () => { A.vdrag = false; vs.classList.remove('drag'); };
+  vs.addEventListener('pointerup', vEnd); vs.addEventListener('pointercancel', vEnd);
+
+  $('#bt-scan').onclick = () => { vibe(); api('/api/bt/scan', { on: !R.bt.scanning }); };
+  $('#eq-on').onchange = (e) => sendEq({ enabled: e.target.checked });
+
+  // EQ sliders
+  const box = $('#m-sliders');
+  box.innerHTML = EQ.LABELS.map((l) => `<div class="mband"><div class="v"></div><div class="t"><div class="f"></div><div class="th"></div></div><div class="l">${l}</div></div>`).join('');
+  $$('.mband', box).forEach((b, i) => {
+    const t = $('.t', b);
+    const set = (y) => {
+      const r = t.getBoundingClientRect();
+      const pct = 1 - Math.max(0, Math.min(1, (y - r.top) / r.height));
+      const v = Math.round(EQ.BAND_MIN + pct * (EQ.BAND_MAX - EQ.BAND_MIN));
+      if (v !== R.audio.eq.bands[i]) { sendEq({ band: i, value: v }); vibe(4); }
+    };
+    t.addEventListener('pointerdown', (e) => { A.dragging = true; b.classList.add('drag'); t.setPointerCapture(e.pointerId); set(e.clientY); });
+    t.addEventListener('pointermove', (e) => { if (b.classList.contains('drag')) set(e.clientY); });
+    const end = () => { b.classList.remove('drag'); A.dragging = false; };
+    t.addEventListener('pointerup', end); t.addEventListener('pointercancel', end);
+  });
+
+  // DJ knobs
+  const mixer = $('#m-mixer');
+  [['low', 'LOW'], ['mid', 'MID'], ['high', 'HI']].forEach(([key, label]) => {
+    const k = document.createElement('div');
+    k.className = 'mknob';
+    k.dataset.key = key;
+    k.innerHTML = `<div class="n">${label}</div>${EQ.knobSVG()}<div class="r"></div><button class="kill">KILL</button>`;
+    mixer.appendChild(k);
+    const svg = $('svg', k);
+    let y0 = 0, v0 = 0, lastTap = 0;
+    svg.addEventListener('pointerdown', (e) => {
+      const now = Date.now();
+      if (now - lastTap < 300) { sendEq({ [key]: 0 }); vibe(12); lastTap = 0; return; }
+      lastTap = now;
+      A.dragging = true; y0 = e.clientY; v0 = R.audio.eq[key]; svg.setPointerCapture(e.pointerId);
+    });
+    svg.addEventListener('pointermove', (e) => {
+      if (!A.dragging || !svg.hasPointerCapture(e.pointerId)) return;
+      const d = (y0 - e.clientY) / 5;
+      const v = Math.max(EQ.ISO_MIN, Math.min(EQ.ISO_MAX, Math.round(v0 + (v0 + d < 0 ? d * 2 : d))));
+      if (v !== R.audio.eq[key]) { sendEq({ [key]: v }); vibe(3); }
+    });
+    const end = () => { A.dragging = false; };
+    svg.addEventListener('pointerup', end); svg.addEventListener('pointercancel', end);
+    $('.kill', k).onclick = () => {
+      vibe(15);
+      const v = R.audio.eq[key];
+      if (v <= EQ.ISO_MIN + 0.01) sendEq({ [key]: A.killPrev[key] ?? 0 });
+      else { A.killPrev[key] = v; sendEq({ [key]: EQ.ISO_MIN }); }
+    };
+  });
+
+  $('#m-save').onclick = async () => {
+    const name = (prompt('Name this preset', '') || '').trim();
+    if (!name) return;
+    try { await api('/api/audio/preset', { action: 'save', name }); toast('Preset saved'); } catch (e) { toast('Choose another name'); }
+  };
+  $('#m-reset').onclick = () => { vibe(); api('/api/audio/preset', { name: 'Flat' }); };
+  window.addEventListener('resize', () => updateEqUI());
 }
 
 /* ================================================================ boot */

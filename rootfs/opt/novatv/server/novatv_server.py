@@ -23,6 +23,8 @@ from pathlib import Path
 
 from aiohttp import ClientSession, WSMsgType, web
 
+from audio import Audio, Bluetooth
+
 try:
     import qrcode
     import qrcode.image.svg
@@ -162,6 +164,7 @@ class State:
             "keyboard": s.get("keyboard", "us"),
             "setup_resume": s.get("setup_resume", ""),
             "screensaver_minutes": s.get("screensaver_minutes", 5),
+            "screensaver_style": s.get("screensaver_style", "gradient"),
             "keep_background": s.get("keep_background", 1),
             "pair_code": s.get("pair_code") or f"{secrets.randbelow(10**6):06d}",
             "token": s.get("token") or secrets.token_urlsafe(32),
@@ -551,7 +554,8 @@ class Server:
         self.clients = {}   # ws -> role ("tv" | "remote")
         self.ip = get_ip()
         self.fail = {}      # ip -> (count, until)
-        self.volume = {"level": 50, "muted": False}
+        self.audio = Audio(self)
+        self.bt = Bluetooth(self)
 
     # ---- auth helpers
     @staticmethod
@@ -598,7 +602,7 @@ class Server:
         d = {
             "version": VERSION, "ip": self.ip, "url": base, "hostname": socket.gethostname(),
             "browser": self.browser.ok, "active_app": self.browser.active_app,
-            "volume": self.volume, "remotes": sum(1 for r in self.clients.values() if r == "remote"),
+            "volume": self.audio.volume, "remotes": sum(1 for r in self.clients.values() if r == "remote"),
             "settings": self.state.public_settings(),
         }
         if local:
@@ -620,7 +624,7 @@ class Server:
 
     async def broadcast_state(self):
         await self.broadcast({"t": "state", "active_app": self.browser.active_app,
-                              "volume": self.volume, "ip": self.ip,
+                              "volume": self.audio.volume, "ip": self.ip,
                               "remotes": sum(1 for r in self.clients.values() if r == "remote")})
 
     async def toast(self, text):
@@ -669,12 +673,16 @@ class Server:
             elif k == "playpause":
                 await (b.play_pause() if b.ok else self.broadcast({"t": "key", "k": "select"}, role="tv"))
             elif k in ("volup", "voldown", "mute"):
-                await self.change_volume(k)
+                await self.audio.change_volume(k)
             elif k in KEYS:
                 if b.ok:
                     await b.press(k)
                 elif on_launcher:
                     await self.broadcast({"t": "key", "k": k}, role="tv")
+        elif t == "volume_set":
+            await self.audio.change_volume("set", m.get("level", 50))
+        elif t == "eq":
+            self.audio.set_eq(m)
         elif t == "text" and b.ok:
             await b.insert_text(str(m.get("text", ""))[:500])
         elif t == "pointer" and b.ok:
@@ -683,31 +691,6 @@ class Server:
             await b.pointer_click()
         elif t == "scroll" and b.ok:
             await b.pointer_scroll(float(m.get("dx", 0)), float(m.get("dy", 0)))
-
-    async def read_volume(self):
-        rc, out = await arun(["wpctl", "get-volume", "@DEFAULT_AUDIO_SINK@"], 5)
-        mm = re.search(r"Volume:\s*([\d.]+)", out or "")
-        if mm:
-            self.volume = {"level": round(float(mm.group(1)) * 100), "muted": "MUTED" in out}
-        return self.volume
-
-    async def change_volume(self, k):
-        sink = "@DEFAULT_AUDIO_SINK@"
-        if k == "mute":
-            await arun(["wpctl", "set-mute", sink, "toggle"], 5)
-        else:
-            await arun(["wpctl", "set-volume", "-l", "1.0", sink, "5%+" if k == "volup" else "5%-"], 5)
-            await arun(["wpctl", "set-mute", sink, "0"], 5)
-        if DRY_RUN:
-            lv = self.volume["level"]
-            if k == "mute":
-                self.volume["muted"] = not self.volume["muted"]
-            else:
-                self.volume = {"level": max(0, min(100, lv + (5 if k == "volup" else -5))), "muted": False}
-        else:
-            await self.read_volume()
-        await self.broadcast({"t": "volume", **self.volume})
-        await self.browser.hud("volume", self.volume)
 
     # ---- HTTP handlers
     async def h_root(self, req):
@@ -858,6 +841,8 @@ class Server:
                 s["screensaver_minutes"] = max(0, min(60, int(body["screensaver_minutes"])))
             if "keep_background" in body:
                 s["keep_background"] = max(0, min(3, int(body["keep_background"])))
+            if body.get("screensaver_style") in ("gradient", "black"):
+                s["screensaver_style"] = body["screensaver_style"]
             if "setup_resume" in body:
                 s["setup_resume"] = str(body["setup_resume"])[:20]
             restart = False
@@ -903,7 +888,63 @@ class Server:
 
     async def h_volume(self, req):
         self.require_auth(req)
-        return web.json_response(await self.read_volume())
+        if req.method == "POST":
+            body = await req.json()
+            if "level" in body:
+                return web.json_response(await self.audio.change_volume("set", body["level"]))
+            if body.get("action") in ("volup", "voldown", "mute"):
+                return web.json_response(await self.audio.change_volume(body["action"]))
+        return web.json_response(await self.audio.read_volume())
+
+    # ---- audio, equalizer, bluetooth
+    async def h_audio(self, req):
+        self.require_auth(req)
+        return web.json_response({**self.audio.public(), "bt": self.bt.public()})
+
+    async def h_audio_output(self, req):
+        self.require_auth(req)
+        name = str((await req.json()).get("name", "auto"))
+        if name != "auto" and not any(k["name"] == name for k in self.audio.sinks):
+            raise web.HTTPBadRequest()
+        self.state.settings["audio_output"] = name
+        self.state.save()
+        await self.audio.route()
+        await self.broadcast({"t": "audio", **self.audio.public()})
+        return web.json_response(self.audio.public())
+
+    async def h_eq(self, req):
+        self.require_auth(req)
+        self.audio.set_eq(await req.json())
+        return web.json_response({"eq": self.audio.eq})
+
+    async def h_preset(self, req):
+        self.require_auth(req)
+        body = await req.json()
+        action, name = body.get("action", "load"), str(body.get("name", ""))
+        ok = {"load": self.audio.load_preset, "save": self.audio.save_preset,
+              "delete": self.audio.delete_preset}.get(action, lambda n: False)(name)
+        if not ok:
+            return web.json_response({"ok": False}, status=400)
+        self.state.save()
+        await self.broadcast({"t": "audio", **self.audio.public()})
+        if action == "save":
+            await self.toast(f"Preset “{name}” saved")
+        return web.json_response({"ok": True, **self.audio.public()})
+
+    async def h_bt(self, req):
+        self.require_auth(req)
+        action = req.match_info["action"]
+        body = await req.json() if req.can_read_body else {}
+        mac = str(body.get("mac", "")).upper()
+        if action == "scan":
+            await self.bt.scan(bool(body.get("on", True)))
+        elif action in ("pair", "connect", "disconnect", "forget"):
+            if not re.fullmatch(r"([0-9A-F]{2}:){5}[0-9A-F]{2}", mac):
+                raise web.HTTPBadRequest()
+            asyncio.create_task(getattr(self.bt, action)(mac))
+        else:
+            raise web.HTTPNotFound()
+        return web.json_response(self.bt.public())
 
     # ---- setup + network
     async def h_countries(self, req):
@@ -1033,7 +1074,8 @@ class Server:
         ws = web.WebSocketResponse(heartbeat=20)
         await ws.prepare(req)
         self.clients[ws] = role
-        await self.send(ws, {"t": "hello", **self.info(role == "tv"), "apps": self.state.apps})
+        await self.send(ws, {"t": "hello", **self.info(role == "tv"), "apps": self.state.apps,
+                             "audio": self.audio.public(), "bt": self.bt.public()})
         if role == "remote":
             await self.broadcast({"t": "remote_connected"}, role="tv")
             await self.broadcast_state()
@@ -1073,8 +1115,8 @@ class Server:
     async def on_startup(self, app):
         app["tasks"] = [asyncio.create_task(self.browser.run_forever()),
                         asyncio.create_task(self.watch_network())]
-        if not DRY_RUN and shutil.which("wpctl"):
-            asyncio.create_task(self.read_volume())
+        asyncio.create_task(self.audio.start())
+        asyncio.create_task(self.bt.start())
 
     def make_app(self):
         app = web.Application(client_max_size=2 * 1024 * 1024)
@@ -1096,7 +1138,12 @@ class Server:
         r.add_route("*", "/api/settings", self.h_settings)
         r.add_post("/api/repair", self.h_repair)
         r.add_post("/api/system/{action}", self.h_system)
-        r.add_get("/api/volume", self.h_volume)
+        r.add_route("*", "/api/volume", self.h_volume)
+        r.add_get("/api/audio", self.h_audio)
+        r.add_post("/api/audio/output", self.h_audio_output)
+        r.add_post("/api/audio/eq", self.h_eq)
+        r.add_post("/api/audio/preset", self.h_preset)
+        r.add_post("/api/bt/{action}", self.h_bt)
         r.add_get("/api/countries", self.h_countries)
         r.add_get("/api/layouts", self.h_layouts)
         r.add_post("/api/key", self.h_key)

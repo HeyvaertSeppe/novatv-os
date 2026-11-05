@@ -49,6 +49,33 @@
   <div class="set-right"><div class="set-list" id="set-list"></div></div>
 </section>
 
+<!-- ============ EQUALIZER ============ -->
+<section id="eq" class="screen hidden">
+  <div class="eq-bg"></div>
+  <header class="eq-head">
+    <div>
+      <div class="eq-title">Equalizer</div>
+      <div class="eq-sub" id="eq-sub">Playing on TV</div>
+    </div>
+    <div class="eq-toggle focusable" id="eq-toggle"><i></i><span>On</span></div>
+  </header>
+  <div class="eq-presets" id="eq-presets"></div>
+  <div class="eq-main">
+    <div class="mixer" id="mixer">
+      <i class="screw tl"></i><i class="screw tr"></i><i class="screw bl"></i><i class="screw br"></i>
+      <div class="mixer-label">ISOLATOR</div>
+    </div>
+    <div class="geq">
+      <canvas id="eq-curve"></canvas>
+      <div class="sliders" id="eq-sliders"></div>
+    </div>
+  </div>
+  <footer class="eq-foot">
+    <div class="eq-btns" id="eq-btns"></div>
+    <div class="eq-hint" id="eq-hint"><span class="kbd">OK</span> to adjust · <span class="kbd">↑ ↓</span> change · <span class="kbd">Back</span> done</div>
+  </footer>
+</section>
+
 <!-- ============ SETUP ============ -->
 <section id="setup" class="screen hidden">
   <div class="aurora"><i></i><i></i><i></i></div>
@@ -59,11 +86,13 @@
 <!-- ============ OVERLAYS ============ -->
 <div id="launch"></div>
 <div id="saver" class="hidden">
-  <div class="aurora big"><i></i><i></i><i></i></div>
-  <div class="saver-clock" id="saver-clock"></div>
-  <div class="saver-date" id="saver-date"></div>
+  <div class="saver-bg"><i></i><i></i><i></i><i></i></div>
+  <div class="saver-wrap" id="saver-wrap">
+    <div class="saver-time"><span id="saver-hm">--:--</span><span class="saver-sec" id="saver-sec">00</span></div>
+    <div class="saver-date" id="saver-date"></div>
+  </div>
 </div>
-<div id="hud"></div>
+<div id="hud"><div class="hud-icon"></div><div class="hud-body"><div class="hud-name"></div><div class="bar"><i></i></div></div><div class="hud-num"></div></div>
 <div id="toast"></div>
 <div id="alert" class="hidden"></div>
 
@@ -76,6 +105,7 @@
 
 <script src="/shared/icons.js"></script>
 <script src="/shared/tiles.js"></script>
+<script src="/shared/eq.js"></script>
 <script src="/tv/tv.js"></script>
 </body>
 </html>

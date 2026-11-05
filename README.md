@@ -23,6 +23,26 @@ a Wayland kiosk compositor.
   - Apps tab: launch apps, **add any website as an app**, edit, reorder, delete
   - Settings: name, screen saver, restart, shut down, sign out other phones
 - **Your TV's own remote** works too through HDMI-CEC (arrows, OK, back, play/pause).
+- **Bluetooth speakers and headphones**: *Settings → Audio & Bluetooth → Bluetooth* on the TV,
+  or the **Audio** tab on the phone. Pick the device in pairing mode and NovaTV pairs, trusts and
+  connects it, then plays sound on it right away. It reconnects automatically after a restart.
+- **Volume** always changes the output that's playing. For Bluetooth speakers that support it
+  (almost all), that's the speaker's own volume. A volume pill on the TV shows the level and
+  which speaker you're on, also on top of Netflix etc.
+- **Equalizer for everything**: every app plays through a system-wide equalizer, so it works in
+  Netflix, YouTube, Spotify and any website. Apps that try to play straight to the speaker are
+  moved back through the equalizer automatically.
+  - 10 bands (31 Hz – 16 kHz, ±12 dB) with a live response curve
+  - **DJ isolator** like a Pioneer mixer: LOW / MID / HI knobs from KILL (−26 dB) to +6 dB,
+    with KILL buttons on the phone
+  - Presets: Flat, Bass Boost, Movie, Dialogue, Music, Night Mode, Loudness, Rock, Electronic,
+    Treble Boost, plus your own saved presets
+  - Automatic headroom so boosts don't distort
+  - On the TV: *Settings → Audio & Bluetooth → Equalizer*. Press OK on a slider or knob, then
+    ↑/↓ to change it and ←/→ to move to the next one.
+- **Screen saver**: a large clock with seconds and the date, on a very dark, slowly moving
+  gradient or plain black (*Settings → Screen Saver → Style*). It drifts slightly every minute
+  to protect OLED screens.
 - Default apps: Netflix, Prime Video, Disney+, Telenet TV, VTM GO, VRT MAX, Streamz, Play,
   YouTube (TV interface), HBO Max, Spotify, Browser.
 - Settings on the TV: Wi-Fi, keyboard layout, screen saver, apps kept in background,
@@ -126,6 +146,8 @@ If DRM video never starts, edit `config.txt` on the SD card's boot partition and
 | Phone remote | `rootfs/opt/novatv/web/remote/` |
 | Kiosk session: `cage` + Chromium, apps open as tabs controlled over the DevTools port (localhost only) | `rootfs/opt/novatv/bin/` |
 | HDMI-CEC bridge | `rootfs/opt/novatv/bin/novatv-cec` |
+| Audio: outputs, volume, equalizer, Bluetooth | `rootfs/opt/novatv/server/audio.py` |
+| Equalizer filter (PipeWire filter-chain) | `rootfs/etc/pipewire/pipewire.conf.d/50-novatv-eq.conf` |
 | Boot animation (Plymouth) | `rootfs/usr/share/plymouth/themes/novatv/` (frames: `tools/render-plymouth.js`) |
 | App tile banners | `rootfs/opt/novatv/web/shared/logos/` (made by `tools/make-banners.py`) |
 | Installer / image builder | `install.sh`, `build/build-image.sh` |

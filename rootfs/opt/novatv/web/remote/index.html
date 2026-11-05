@@ -79,12 +79,47 @@
     <div id="app-grid" class="app-grid"></div>
   </main>
 
+  <!-- AUDIO -->
+  <main id="v-audio" class="view hidden">
+    <div class="vol-card">
+      <div class="vol-top">
+        <span class="vol-icon" id="vol-icon"></span>
+        <div class="vol-text"><div class="vol-name" id="vol-name">TV</div><div class="vol-sub">Now playing on</div></div>
+        <button class="vol-mute" id="vol-mute" aria-label="Mute"></button>
+      </div>
+      <div class="vslider" id="vslider"><div class="vfill" id="vfill"></div><span class="vnum" id="vnum">50</span></div>
+    </div>
+
+    <div class="section-head"><h2>Output</h2></div>
+    <div class="group" id="out-list"></div>
+
+    <div class="section-head"><h2>Bluetooth</h2><button class="link" id="bt-scan">Search</button></div>
+    <p class="hint">Put your speaker or headphones in pairing mode, tap Search, then tap the device.</p>
+    <div class="group" id="bt-list"></div>
+
+    <div class="section-head"><h2>Equalizer</h2><label class="switch"><input type="checkbox" id="eq-on"><i></i></label></div>
+    <div class="m-presets" id="m-presets"></div>
+    <div class="eq-card" id="eq-card">
+      <canvas id="m-curve"></canvas>
+      <div class="m-sliders" id="m-sliders"></div>
+    </div>
+
+    <div class="section-head"><h2>DJ Isolator</h2><span class="hint-inline">drag up/down · double-tap resets</span></div>
+    <div class="mixer-card" id="m-mixer"><i class="screw tl"></i><i class="screw tr"></i><i class="screw bl"></i><i class="screw br"></i></div>
+
+    <div class="eq-actions">
+      <button id="m-save" class="btn-primary">Save as Preset</button>
+      <button id="m-reset">Reset</button>
+    </div>
+  </main>
+
   <!-- SETTINGS -->
   <main id="v-settings" class="view hidden"><div id="settings-list"></div></main>
 
   <nav id="tabs">
     <button data-tab="remote" class="on"><span></span>Remote</button>
     <button data-tab="apps"><span></span>Apps</button>
+    <button data-tab="audio"><span></span>Audio</button>
     <button data-tab="settings"><span></span>Settings</button>
   </nav>
 </section>
@@ -153,6 +188,7 @@
 
 <script src="/shared/icons.js"></script>
 <script src="/shared/tiles.js"></script>
+<script src="/shared/eq.js"></script>
 <script src="/remote/remote.js"></script>
 </body>
 </html>

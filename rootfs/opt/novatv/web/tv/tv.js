@@ -110,6 +110,7 @@ function input(k) {
   if (S.saver) { hideSaver(); return; }
   if (!S.ready) return;
   if (k === 'home') { goHome(); return; }
+  if (S.screen === 'eq' && S.eqAdjust && eqAdjustKey(k)) return;
   if (['up', 'down', 'left', 'right'].includes(k)) { move(k); return; }
   if (k === 'select') { activate(); return; }
   if (k === 'back') { back(); }
@@ -118,6 +119,7 @@ function input(k) {
 function back() {
   if (!$('#alert').classList.contains('hidden')) { closeAlert(); return; }
   if (S.screen === 'settings') { settingsBack(); return; }
+  if (S.screen === 'eq') { closeEq(); return; }
   if (S.screen === 'setup') { setupBack(); return; }
   if (S.screen === 'home') {
     if (!$('#pair-card').classList.contains('hidden')) { hidePairCard(); return; }
@@ -194,6 +196,7 @@ function onMessage(m) {
   switch (m.t) {
     case 'hello':
       S.info = m; S.settings = m.settings; S.apps = m.apps; S.remotes = m.remotes;
+      S.audio = m.audio || {}; S.bt = m.bt || { devices: [] };
       renderHome(); updateStatus();
       if (!S.started) start();
       break;
@@ -211,7 +214,10 @@ function onMessage(m) {
     case 'home': goHome(); break;
     case 'open': if (m.screen === 'settings') openSettings(); break;
     case 'key': input(m.k); break;
-    case 'volume': showVolume(m); break;
+    case 'volume': S.audio.volume = { level: m.level, muted: m.muted }; showVolume(m); break;
+    case 'audio': { const { t, ...a } = m; S.audio = a; refreshAudioViews(); break; }
+    case 'eq': S.audio.eq = m.eq; S.audio.preset = m.preset; if (S.screen === 'eq' && !S.eqLocal) updateEq(); break;
+    case 'bt': { const { t, ...b } = m; S.bt = b; refreshAudioViews(); break; }
     case 'toast': toast(m.text); break;
   }
 }
@@ -304,7 +310,7 @@ function showHome(entering) {
 }
 
 function setScreen(name) {
-  for (const s of ['home', 'settings', 'setup']) $(`#${s}`).classList.toggle('hidden', s !== name);
+  for (const s of ['home', 'settings', 'setup', 'eq']) $(`#${s}`).classList.toggle('hidden', s !== name);
   S.screen = name;
 }
 
@@ -367,7 +373,7 @@ function closeLaunch() {
 document.addEventListener('visibilitychange', () => {
   if (document.visibilityState === 'visible') {
     S.lastInput = Date.now();
-    if (S.screen !== 'home' && S.settings.setup_done && S.screen !== 'settings') showHome();
+    if (S.screen !== 'home' && S.settings.setup_done && !['settings', 'eq'].includes(S.screen)) showHome();
     setTimeout(closeLaunch, 60);
     tick();
   }
@@ -422,24 +428,51 @@ function tick() {
   const h12 = ['US', 'CA', 'AU'].includes(S.settings.country);
   const t = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: h12 });
   $('#clock').textContent = t;
-  $('#saver-clock').textContent = t;
-  $('#saver-date').textContent = now.toLocaleDateString([], { weekday: 'long', day: 'numeric', month: 'long' });
+
 }
 setInterval(tick, 5000);
 tick();
 
 setInterval(() => {
   const mins = +S.settings.screensaver_minutes || 0;
-  if (!S.saver && mins > 0 && S.screen === 'home' && document.visibilityState === 'visible' &&
-      $('#alert').classList.contains('hidden') && Date.now() - S.lastInput > mins * 60000) {
-    S.saver = true;
-    $('#saver').classList.remove('hidden');
-  }
+  if (!S.saver && mins > 0 && ['home', 'settings'].includes(S.screen) && document.visibilityState === 'visible' &&
+      $('#alert').classList.contains('hidden') && Date.now() - S.lastInput > mins * 60000) showSaver();
 }, 5000);
+
+let saverClock = 0, saverDrift = 0;
+function saverTick() {
+  const now = new Date();
+  const h12 = ['US', 'CA', 'AU'].includes(S.settings.country);
+  let hm = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: h12 });
+  $('#saver-hm').textContent = hm.replace(/\s?[AP]M$/i, '');
+  $('#saver-sec').textContent = String(now.getSeconds()).padStart(2, '0');
+  $('#saver-date').textContent = now.toLocaleDateString([], { weekday: 'long', day: 'numeric', month: 'long' });
+}
+function showSaver() {
+  S.saver = true;
+  const sv = $('#saver');
+  sv.classList.toggle('black', S.settings.screensaver_style === 'black');
+  sv.classList.remove('hidden', 'leave');
+  void sv.offsetWidth;
+  sv.classList.add('show');
+  $('#saver-wrap').style.transform = 'translate(-50%, -50%)';
+  saverTick();
+  clearInterval(saverClock); clearInterval(saverDrift);
+  saverClock = setInterval(saverTick, 1000);
+  // move the clock a little every minute so nothing burns into an OLED screen
+  saverDrift = setInterval(() => {
+    const dx = (Math.random() - 0.5) * 8 * rem(), dy = (Math.random() - 0.5) * 6 * rem();
+    $('#saver-wrap').style.transform = `translate(calc(-50% + ${dx}px), calc(-50% + ${dy}px))`;
+  }, 60000);
+}
 function hideSaver() {
   S.saver = false;
   S.lastInput = Date.now();
-  $('#saver').classList.add('hidden');
+  clearInterval(saverClock); clearInterval(saverDrift);
+  const sv = $('#saver');
+  sv.classList.remove('show');
+  sv.classList.add('leave');
+  setTimeout(() => { if (!S.saver) sv.classList.add('hidden'); }, 450);
 }
 
 /* ---------- HUD + toast */
@@ -448,10 +481,16 @@ function showVolume(v) {
   if (document.visibilityState !== 'visible') return;
   const hud = $('#hud');
   const level = v.muted ? 0 : v.level;
-  hud.innerHTML = `${v.muted ? I.mute : I.speaker}<div class="bar"><i style="width:${level}%"></i></div>`;
+  const bt = v.bluetooth ?? S.audio.active_bluetooth;
+  const icon = $('.hud-icon', hud);
+  icon.className = 'hud-icon' + (v.muted ? ' muted' : bt ? ' bt' : '');
+  icon.innerHTML = v.muted ? I.mute : bt ? I.bluetooth : I.speaker;
+  $('.hud-name', hud).textContent = v.output || S.audio.active_name || 'TV';
+  $('.bar i', hud).style.width = `${level}%`;
+  $('.hud-num', hud).textContent = v.muted ? '' : level;
   hud.classList.add('on');
   clearTimeout(hudT);
-  hudT = setTimeout(() => hud.classList.remove('on'), 1800);
+  hudT = setTimeout(() => hud.classList.remove('on'), 2200);
 }
 function toast(text, ok) {
   const t = $('#toast');
@@ -493,6 +532,7 @@ function openSettings() {
   renderSettings();
 }
 function settingsBack() {
+  if (S.stack[S.stack.length - 1] === 'bluetooth') api('/api/bt/scan', { on: false }).catch(() => {});
   S.stack.pop();
   if (!S.stack.length) { showHome(); return; }
   renderSettings();
@@ -510,9 +550,10 @@ function settingsPages() {
       rows: [
         { label: 'Remote', value: S.remotes ? `${S.remotes} connected` : 'Pair a phone', act: () => pushPage('remote') },
         { label: 'Network', value: S.info.ip || 'Offline', act: () => pushPage('network') },
+        { label: 'Audio & Bluetooth', value: S.audio.active_name || 'TV', act: () => pushPage('audio') },
         { label: 'Device Name', value: s.device_name, act: () => openSetupStep('name', 'settings') },
         { label: 'Keyboard Layout', value: (S.layouts || {})[s.keyboard] || s.keyboard, act: () => pushPage('keyboard') },
-        { label: 'Screen Saver', value: ssLabel(s.screensaver_minutes), act: () => cycle('screensaver_minutes', SS_OPTS) },
+        { label: 'Screen Saver', value: ssLabel(s.screensaver_minutes), act: () => pushPage('saver') },
         { label: 'Apps Kept Open in Background', value: String(s.keep_background), act: () => cycle('keep_background', [0, 1, 2, 3]) },
         { heading: 'System' },
         { label: 'About', act: () => pushPage('about') },
@@ -541,6 +582,36 @@ function settingsPages() {
         { label: 'Choose Wi-Fi Network', act: () => openSetupStep('network', 'settings') },
       ],
     },
+    audio: {
+      title: 'Audio & Bluetooth', icon: I.audio,
+      rows: [
+        { label: 'Volume', value: `${S.audio.volume ? (S.audio.volume.muted ? 'Muted' : S.audio.volume.level + '%') : '—'}`, static: true },
+        { label: 'Sound Output', value: S.audio.active_name || 'TV', act: () => pushPage('outputs') },
+        { label: 'Bluetooth Speakers & Headphones', value: btSummary(), act: () => { pushPage('bluetooth'); api('/api/bt/scan', { on: true }).catch(() => {}); } },
+        { label: 'Equalizer', value: S.audio.eq && !S.audio.eq.enabled ? 'Off' : (S.audio.preset || 'Flat'), act: () => openEq() },
+      ],
+    },
+    outputs: {
+      title: 'Sound Output', icon: I.speaker,
+      sub: 'Automatic plays on a Bluetooth speaker as soon as one is connected, otherwise on the TV.',
+      rows: [
+        { label: 'Automatic', value: S.audio.output_mode === 'auto' ? '✓' : '', act: () => setOutput('auto') },
+        ...(S.audio.outputs || []).map((o) => ({
+          label: o.description, value: S.audio.output_mode === o.name ? '✓' : (S.audio.active === o.name ? 'Playing' : ''),
+          act: () => setOutput(o.name),
+        })),
+      ],
+    },
+    bluetooth: btPage(),
+    saver: {
+      title: 'Screen Saver', icon: I.tv,
+      sub: 'A calm clock appears when nothing happens on the home screen. Any button wakes the TV.',
+      rows: [
+        { label: 'Start After', value: ssLabel(s.screensaver_minutes), act: () => cycle('screensaver_minutes', SS_OPTS) },
+        { label: 'Style', value: s.screensaver_style === 'black' ? 'Black' : 'Dark Gradient', act: () => cycleStyle() },
+        { label: 'Preview', act: () => showSaver() },
+      ],
+    },
     keyboard: {
       title: 'Keyboard Layout', icon: I.keyboard,
       sub: 'For a USB keyboard. The interface restarts to apply the change.',
@@ -565,6 +636,13 @@ function settingsPages() {
       ],
     },
   };
+}
+
+async function cycleStyle() {
+  const val = S.settings.screensaver_style === 'black' ? 'gradient' : 'black';
+  S.settings.screensaver_style = val;
+  renderSettings(true);
+  try { S.settings = await api('/api/settings', { screensaver_style: val }); } catch (e) { toast('Could not save'); }
 }
 
 async function cycle(key, opts) {
@@ -869,3 +947,253 @@ async function join(ssid, password, hidden) {
 
 /* ================================================================ boot */
 connect();
+
+/* ================================================================ audio + bluetooth */
+function btSummary() {
+  const c = (S.bt.devices || []).find((d) => d.connected);
+  return c ? c.name : (S.bt.available === false ? 'Unavailable' : 'Not Connected');
+}
+
+const BUSY = { pairing: 'Pairing…', connecting: 'Connecting…', trusting: 'Connecting…', disconnecting: 'Disconnecting…', removing: 'Removing…' };
+
+function btPage() {
+  const devs = S.bt.devices || [];
+  const mine = devs.filter((d) => d.paired), other = devs.filter((d) => !d.paired);
+  const rows = [{ heading: 'My Devices' }];
+  if (!mine.length) rows.push({ label: 'No paired speakers yet', value: '', static: true });
+  mine.forEach((d) => rows.push({
+    label: d.name, value: d.busy ? BUSY[d.busy] || '…' : d.connected ? 'Connected' : 'Not Connected',
+    act: () => alertBox(d.name, d.connected ? 'Connected. Sound plays on this device.' : 'Paired, not connected.', [
+      d.connected ? { label: 'Disconnect', act: () => api('/api/bt/disconnect', { mac: d.mac }) }
+                  : { label: 'Connect', act: () => { toast(`Connecting to ${d.name}…`); api('/api/bt/connect', { mac: d.mac }); } },
+      { label: 'Forget This Device', danger: true, act: () => api('/api/bt/forget', { mac: d.mac }) },
+      { label: 'Cancel' },
+    ]),
+  }));
+  rows.push({ heading: 'Other Devices' });
+  other.forEach((d) => rows.push({
+    label: d.name, value: d.busy ? BUSY[d.busy] || '…' : (d.icon || '').includes('head') ? 'Headphones' : 'Speaker',
+    act: () => { toast(`Pairing with ${d.name}…`); api('/api/bt/pair', { mac: d.mac }); },
+  }));
+  rows.push(S.bt.scanning ? { label: 'Searching…', value: '', static: true }
+                          : { label: 'Search Again', act: () => api('/api/bt/scan', { on: true }) });
+  return {
+    title: 'Bluetooth', icon: I.bluetooth,
+    sub: 'Put your speaker or headphones in pairing mode (usually: hold the Bluetooth button), then pick it below.',
+    rows,
+  };
+}
+
+async function setOutput(name) {
+  try { S.audio = { ...S.audio, ...(await api('/api/audio/output', { name })) }; } catch (e) { toast('That output is not available'); }
+  renderSettings(true);
+}
+
+function refreshAudioViews() {
+  const page = S.stack[S.stack.length - 1];
+  if (S.screen === 'settings' && ['root', 'audio', 'outputs', 'bluetooth'].includes(page)) renderSettings(true);
+  if (S.screen === 'eq') renderEq(true);
+}
+
+/* ---------- equalizer screen */
+const KNOBS = [['high', 'HI'], ['mid', 'MID'], ['low', 'LOW']];
+
+function openEq() {
+  S.eqFrom = S.screen;
+  setScreen('eq');
+  const eqEl = $('#eq');
+  eqEl.classList.remove('enter'); void eqEl.offsetWidth; eqEl.classList.add('enter');
+  renderEq();
+}
+function closeEq() {
+  S.eqAdjust = null;
+  if (S.eqFrom === 'settings') { setScreen('settings'); renderSettings(true); } else showHome();
+}
+
+function renderEq(keep) {
+  const a = S.audio, eq = a.eq || { enabled: true, bands: Array(10).fill(0), low: 0, mid: 0, high: 0 };
+  const focusKey = keep && S.focus ? S.focus.dataset.key : null;
+  $('#eq-sub').innerHTML = `${a.active_bluetooth ? I.bluetooth : I.speaker}<span>Playing on ${esc(a.active_name || 'TV')}</span>`;
+  const tog = $('#eq-toggle');
+  tog.dataset.key = 'toggle';
+  tog._act = () => sendEq({ enabled: !(S.audio.eq || {}).enabled });
+
+  // presets
+  const pr = $('#eq-presets');
+  pr.innerHTML = '';
+  const names = [...((a.presets || {}).builtin || []), ...((a.presets || {}).user || [])];
+  names.forEach((n) => {
+    const user = ((a.presets || {}).user || []).includes(n);
+    const c = el('div', `chip${user ? ' user' : ''}`, esc(n), () => api('/api/audio/preset', { name: n }).catch(() => {}));
+    c.dataset.key = `p:${n}`;
+    pr.appendChild(c);
+  });
+
+  // knobs
+  const mixer = $('#mixer');
+  $$('.knob', mixer).forEach((k) => k.remove());
+  KNOBS.forEach(([key, label]) => {
+    const k = el('div', 'knob', `<div class="k-name">${label}</div>${EQ.knobSVG()}<div class="k-read"></div>`, () => startAdjust(k));
+    k.dataset.key = key;
+    k.dataset.kind = 'knob';
+    mixer.appendChild(k);
+    knobDrag(k, key);
+  });
+
+  // sliders
+  const sl = $('#eq-sliders');
+  sl.innerHTML = '';
+  EQ.LABELS.forEach((lab, i) => {
+    const b = el('div', 'band', `<div class="b-val"></div><div class="b-track"><div class="b-fill"></div><div class="b-thumb"></div></div><div class="b-freq">${lab}</div>`, () => startAdjust(b));
+    b.dataset.key = `b${i}`;
+    b.dataset.kind = 'band';
+    b.dataset.band = i;
+    sl.appendChild(b);
+    sliderDrag(b, i);
+  });
+
+  // buttons
+  const btns = $('#eq-btns');
+  btns.innerHTML = '';
+  const isUser = ((a.presets || {}).user || []).includes(a.preset);
+  const mk = (label, key, act) => { const b = el('div', 'btn', label, act); b.dataset.key = key; btns.appendChild(b); };
+  mk('Done', 'done', () => closeEq());
+  mk('Save as Preset', 'save', () => savePresetPrompt());
+  mk('Reset', 'reset', () => api('/api/audio/preset', { name: 'Flat' }));
+  if (isUser) mk('Delete Preset', 'delete', () => alertBox(`Delete “${a.preset}”?`, '', [
+    { label: 'Cancel' }, { label: 'Delete', danger: true, act: () => api('/api/audio/preset', { action: 'delete', name: a.preset }) }]));
+
+  updateEq();
+  const again = focusKey && $(`#eq [data-key="${CSS.escape(focusKey)}"]`);
+  if (again) { setFocus(again); if (S.eqAdjust && S.eqAdjust.dataset.key === focusKey) { S.eqAdjust = again; again.classList.add('adjusting'); } }
+  else setFocus($('#eq-sliders .band'));
+}
+
+function updateEq() {
+  const a = S.audio, eq = a.eq;
+  if (!eq) return;
+  $('#eq').classList.toggle('off', !eq.enabled);
+  const tog = $('#eq-toggle');
+  tog.classList.toggle('on', eq.enabled);
+  $('span', tog).textContent = eq.enabled ? 'On' : 'Off';
+  $$('#eq-presets .chip').forEach((c) => c.classList.toggle('sel', c.dataset.key === `p:${a.preset}`));
+  $$('#mixer .knob').forEach((k) => {
+    const v = eq[k.dataset.key];
+    EQ.setKnob(k, v);
+    $('.k-read', k).textContent = EQ.fmt(v, true);
+  });
+  $$('#eq-sliders .band').forEach((b) => {
+    const v = eq.bands[+b.dataset.band];
+    const pct = (v - EQ.BAND_MIN) / (EQ.BAND_MAX - EQ.BAND_MIN);   // 0 bottom .. 1 top
+    $('.b-thumb', b).style.top = `${(1 - pct) * 100}%`;
+    const fill = $('.b-fill', b);
+    fill.style.top = `${Math.min(50, (1 - pct) * 100)}%`;
+    fill.style.bottom = `${Math.min(50, pct * 100)}%`;
+    $('.b-val', b).textContent = `${v > 0 ? '+' : ''}${v.toFixed(0)}`;
+  });
+  EQ.draw($('#eq-curve'), eq, { glow: 18, width: 4 });
+}
+
+let eqSendT = 0;
+function sendEq(upd) {
+  // update locally right away, the server confirms and syncs the phone
+  const eq = S.audio.eq;
+  if ('band' in upd) eq.bands[upd.band] = upd.value;
+  for (const k of ['low', 'mid', 'high', 'enabled']) if (k in upd) eq[k] = upd[k];
+  S.audio.preset = 'Custom';
+  updateEq();
+  S.eqLocal = true;
+  clearTimeout(eqSendT);
+  eqSendT = setTimeout(() => { S.eqLocal = false; }, 400);
+  send({ t: 'eq', ...upd });
+}
+
+function startAdjust(e) {
+  if (S.eqAdjust) S.eqAdjust.classList.remove('adjusting');
+  S.eqAdjust = e;
+  e.classList.add('adjusting');
+}
+function stopAdjust() {
+  if (S.eqAdjust) S.eqAdjust.classList.remove('adjusting');
+  S.eqAdjust = null;
+}
+function nudge(e, dir) {
+  const eq = S.audio.eq;
+  if (e.dataset.kind === 'band') {
+    const i = +e.dataset.band;
+    sendEq({ band: i, value: Math.max(EQ.BAND_MIN, Math.min(EQ.BAND_MAX, Math.round(eq.bands[i] + dir))) });
+  } else {
+    const k = e.dataset.key, v = eq[k];
+    const step = v < -6 || (v === -6 && dir < 0) ? 4 : 1;   // bigger steps towards "kill"
+    sendEq({ [k]: Math.max(EQ.ISO_MIN, Math.min(EQ.ISO_MAX, v + dir * step)) });
+  }
+}
+function eqAdjustKey(k) {
+  const e = S.eqAdjust;
+  if (k === 'up' || k === 'down') { nudge(e, k === 'up' ? 1 : -1); return true; }
+  if (k === 'select' || k === 'back') { stopAdjust(); return true; }
+  if (k === 'left' || k === 'right') {
+    // hop to the neighbouring control and keep adjusting
+    const all = [...$$('#mixer .knob'), ...$$('#eq-sliders .band')];
+    const order = [all[2], all[1], all[0], ...all.slice(3)];   // LOW, MID, HI, then 31 Hz .. 16 kHz
+    const i = order.indexOf(e) + (k === 'right' ? 1 : -1);
+    if (order[i]) { setFocus(order[i]); startAdjust(order[i]); }
+    return true;
+  }
+  return false;
+}
+
+/* mouse: drag sliders and knobs, scroll wheel adjusts */
+function sliderDrag(b, i) {
+  const track = $('.b-track', b);
+  const setFromY = (y) => {
+    const r = track.getBoundingClientRect();
+    const pct = 1 - Math.max(0, Math.min(1, (y - r.top) / r.height));
+    sendEq({ band: i, value: Math.round(EQ.BAND_MIN + pct * (EQ.BAND_MAX - EQ.BAND_MIN)) });
+  };
+  track.addEventListener('pointerdown', (e) => {
+    setFocus(b); setFromY(e.clientY); track.setPointerCapture(e.pointerId);
+    const mv = (ev) => setFromY(ev.clientY);
+    const up = () => { track.removeEventListener('pointermove', mv); track.removeEventListener('pointerup', up); };
+    track.addEventListener('pointermove', mv); track.addEventListener('pointerup', up);
+  });
+  b.addEventListener('wheel', (e) => { e.preventDefault(); nudge(b, e.deltaY < 0 ? 1 : -1); }, { passive: false });
+}
+function knobDrag(k, key) {
+  const svg = $('svg', k);
+  svg.addEventListener('pointerdown', (e) => {
+    setFocus(k); svg.setPointerCapture(e.pointerId);
+    let y0 = e.clientY, v0 = S.audio.eq[key];
+    const mv = (ev) => {
+      const d = (y0 - ev.clientY) / 6;   // 6 px per step
+      const v = Math.max(EQ.ISO_MIN, Math.min(EQ.ISO_MAX, Math.round(v0 + (v0 + d < 0 ? d * 2 : d))));
+      if (v !== S.audio.eq[key]) sendEq({ [key]: v });
+    };
+    const up = () => { svg.removeEventListener('pointermove', mv); svg.removeEventListener('pointerup', up); };
+    svg.addEventListener('pointermove', mv); svg.addEventListener('pointerup', up);
+  });
+  svg.addEventListener('dblclick', () => sendEq({ [key]: 0 }));
+  k.addEventListener('wheel', (e) => { e.preventDefault(); nudge(k, e.deltaY < 0 ? 1 : -1); }, { passive: false });
+}
+
+function savePresetPrompt() {
+  S.alertPrev = S.focus;
+  const a = $('#alert');
+  a.innerHTML = '';
+  const box = el('div', 'alert-box', '<h2>Save Preset</h2><p>Give your sound a name. You can type on your phone too.</p>');
+  const save = async () => {
+    const name = $('input', f).value.trim();
+    if (!name) return;
+    closeAlert(true);
+    try { await api('/api/audio/preset', { action: 'save', name }); } catch (e) { toast('Choose another name'); }
+    setFocus($('#eq [data-key="save"]'));
+  };
+  const f = field('My Sound', '', { enter: save });
+  f.classList.add('default');
+  box.appendChild(f);
+  box.appendChild(el('div', 'btn', 'Save', save));
+  box.appendChild(el('div', 'btn', 'Cancel', () => closeAlert()));
+  a.appendChild(box);
+  a.classList.remove('hidden');
+  focusFirst(a);
+}

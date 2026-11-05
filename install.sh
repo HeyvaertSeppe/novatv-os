@@ -23,7 +23,8 @@ PKGS=(
   chromium libwidevinecdm0          # browser + Widevine DRM (L3) for Netflix, Prime, Disney+ ...
   cage                              # Wayland kiosk compositor
   python3-aiohttp python3-qrcode    # NovaTV server
-  pipewire pipewire-pulse pipewire-alsa wireplumber   # audio over HDMI
+  pipewire pipewire-pulse pipewire-alsa pipewire-bin wireplumber   # audio + the equalizer (filter-chain)
+  bluez libspa-0.2-bluetooth        # Bluetooth speakers and headphones (A2DP, absolute volume)
   plymouth plymouth-themes          # boot animation
   v4l-utils                         # cec-ctl: control with the TV's own remote (HDMI-CEC)
   network-manager avahi-daemon sudo curl rfkill iw
@@ -31,6 +32,8 @@ PKGS=(
   libgles2 libegl1 mesa-va-drivers ffmpeg   # GPU + codecs (H.264/HEVC/VP9/AV1 via Chromium's FFmpeg)
 )
 apt-get install -y --no-install-recommends "${PKGS[@]}"
+# Raspberry Pi Bluetooth firmware loader (present on Raspberry Pi OS)
+apt-get install -y --no-install-recommends pi-bluetooth 2>/dev/null || true
 
 # Chromium looks for Widevine next to its binary; Raspberry Pi installs it in /opt/WidevineCdm
 if [ -d /opt/WidevineCdm ] && [ -d /usr/lib/chromium ] && [ ! -e /usr/lib/chromium/WidevineCdm ]; then
@@ -52,7 +55,7 @@ if ! id tv >/dev/null 2>&1; then
 fi
 usermod -s /bin/bash tv
 echo "tv:novatv" | chpasswd
-for g in video render audio input netdev plugdev; do
+for g in video render audio input netdev plugdev bluetooth; do
   getent group "$g" >/dev/null && usermod -aG "$g" tv
 done
 TV_UID="$(id -u tv)"
@@ -92,7 +95,7 @@ sed -i 's/^XKBLAYOUT=.*/XKBLAYOUT="us"/' /etc/default/keyboard 2>/dev/null || tr
 
 # --------------------------------------------------------------------------- services
 log "Enabling services"
-systemctl enable novatv-server.service novatv-cec.service NetworkManager.service avahi-daemon.service
+systemctl enable novatv-server.service novatv-cec.service NetworkManager.service avahi-daemon.service bluetooth.service
 systemctl set-default multi-user.target
 # faster boot: no waiting for the network, no background apt jobs while you watch
 systemctl disable NetworkManager-wait-online.service apt-daily.timer apt-daily-upgrade.timer man-db.timer 2>/dev/null || true

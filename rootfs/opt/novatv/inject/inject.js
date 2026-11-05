@@ -33,11 +33,11 @@
     svg.appendChild(c1);
     cursor.appendChild(svg);
 
-    hud = el('div', 'position:fixed;top:48px;right:56px;min-width:220px;padding:16px 22px;border-radius:22px;' +
-      'background:rgba(30,30,34,.72);backdrop-filter:blur(30px) saturate(1.6);-webkit-backdrop-filter:blur(30px);' +
-      'color:#fff;font:600 20px/1.2 Inter,system-ui,sans-serif;display:flex;align-items:center;gap:16px;' +
-      'opacity:0;transform:translateY(-12px) scale(.96);transition:opacity .25s,transform .35s cubic-bezier(.2,.9,.3,1.2);' +
-      'box-shadow:0 20px 50px rgba(0,0,0,.45);', root);
+    hud = el('div', 'position:fixed;top:44px;right:60px;width:460px;padding:16px 26px 16px 18px;border-radius:36px;' +
+      'background:rgba(44,44,52,.72);backdrop-filter:blur(40px) saturate(1.8);-webkit-backdrop-filter:blur(40px) saturate(1.8);' +
+      'color:#fff;font:600 20px/1.2 Inter,system-ui,sans-serif;display:flex;align-items:center;gap:20px;' +
+      'opacity:0;transform:translateY(-20px) scale(.94);transition:opacity .3s,transform .45s cubic-bezier(.2,.9,.25,1.15);' +
+      'box-shadow:0 24px 60px rgba(0,0,0,.45),inset 0 0 0 1px rgba(255,255,255,.1);', root);
     return true;
   }
 
@@ -53,17 +53,15 @@
     cursor.animate([{ scale: 1 }, { scale: 0.75 }, { scale: 1 }], { duration: 220 });
   }, true);
 
-  function speaker(level, muted) {
+  function icon(kind) {
     const svg = document.createElementNS(NS, 'svg');
-    svg.setAttribute('viewBox', '0 0 24 24'); svg.setAttribute('width', '26'); svg.setAttribute('height', '26');
+    svg.setAttribute('viewBox', '0 0 24 24'); svg.setAttribute('width', '28'); svg.setAttribute('height', '28');
     const p = document.createElementNS(NS, 'path');
-    p.setAttribute('d', 'M4 9h4l5-4v14l-5-4H4z'); p.setAttribute('fill', '#fff');
+    p.setAttribute('fill', 'none'); p.setAttribute('stroke', '#fff'); p.setAttribute('stroke-width', '2');
+    p.setAttribute('stroke-linecap', 'round'); p.setAttribute('stroke-linejoin', 'round');
+    p.setAttribute('d', kind === 'bt' ? 'M7 7l10 10-5 4.5V2.5L17 7 7 17'
+      : kind === 'mute' ? 'M4 9h4l5-4v14l-5-4H4zM17 9l5 6M22 9l-5 6' : 'M4 9h4l5-4v14l-5-4H4zM16.5 8.5a5 5 0 0 1 0 7M19.5 6a8.5 8.5 0 0 1 0 12');
     svg.appendChild(p);
-    const w = document.createElementNS(NS, 'path');
-    w.setAttribute('fill', 'none'); w.setAttribute('stroke', '#fff'); w.setAttribute('stroke-width', '2');
-    w.setAttribute('stroke-linecap', 'round');
-    w.setAttribute('d', muted ? 'M17 9l5 6M22 9l-5 6' : level > 50 ? 'M16 8.5a5 5 0 010 7M19 6a8.5 8.5 0 010 12' : 'M16 8.5a5 5 0 010 7');
-    svg.appendChild(w);
     return svg;
   }
 
@@ -73,9 +71,17 @@
       while (hud.firstChild) hud.firstChild.remove();
       if (kind === 'volume') {
         const level = value.muted ? 0 : value.level;
-        hud.appendChild(speaker(value.level, value.muted));
-        const bar = el('div', 'flex:1;height:8px;border-radius:4px;background:rgba(255,255,255,.22);overflow:hidden;min-width:170px;', hud);
-        el('div', `height:100%;width:${level}%;background:#fff;border-radius:4px;transition:width .2s;`, bar);
+        const kindIcon = value.muted ? 'mute' : value.bluetooth ? 'bt' : 'spk';
+        const bg = value.muted ? '#55555c' : value.bluetooth ? 'linear-gradient(150deg,#3d8bff,#6a5cff)' : 'linear-gradient(150deg,#ff8a3d,#ff3d7f)';
+        const ic = el('div', `width:52px;height:52px;border-radius:50%;display:grid;place-items:center;flex:none;background:${bg};`, hud);
+        ic.appendChild(icon(kindIcon));
+        const body = el('div', 'flex:1;min-width:0;', hud);
+        el('div', 'font-size:19px;color:rgba(235,235,245,.62);margin-bottom:10px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;', body)
+          .textContent = value.output || 'TV';
+        const bar = el('div', 'height:12px;border-radius:10px;background:rgba(255,255,255,.16);overflow:hidden;', body);
+        el('div', `height:100%;width:${level}%;background:#fff;border-radius:10px;transition:width .25s;`, bar);
+        el('div', 'font-size:30px;font-weight:700;width:54px;text-align:right;font-variant-numeric:tabular-nums;', hud)
+          .textContent = value.muted ? '' : String(level);
       } else {
         el('span', '', hud).textContent = String(value);
       }
@@ -84,8 +90,8 @@
       clearTimeout(hudTimer);
       hudTimer = setTimeout(() => {
         hud.style.opacity = '0';
-        hud.style.transform = 'translateY(-12px) scale(.96)';
-      }, 1800);
+        hud.style.transform = 'translateY(-20px) scale(.94)';
+      }, 2200);
     },
   };
 })();

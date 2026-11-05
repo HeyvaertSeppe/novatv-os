@@ -31,6 +31,11 @@ window.ICONS = (() => {
     remote: s('<rect x="7" y="2.5" width="10" height="19" rx="5"/><circle cx="12" cy="8" r="2.2"/><path d="M12 14v.01M12 17.5v.01"/>'),
     link: s('<path d="M10 14a4.5 4.5 0 0 0 6.4 0l3-3a4.5 4.5 0 0 0-6.4-6.4l-1 1M14 10a4.5 4.5 0 0 0-6.4 0l-3 3a4.5 4.5 0 0 0 6.4 6.4l1-1"/>'),
     eye: s('<path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/>'),
+    bluetooth: s('<path d="M7 7l10 10-5 4.5V2.5L17 7 7 17"/>'),
+    speakerbox: s('<rect x="5" y="2.5" width="14" height="19" rx="3"/><circle cx="12" cy="14.5" r="3.6"/><circle cx="12" cy="7" r="1.3" fill="currentColor"/>'),
+    headphones: s('<path d="M4 15v-3a8 8 0 0 1 16 0v3"/><rect x="3" y="14" width="4.5" height="7" rx="1.8"/><rect x="16.5" y="14" width="4.5" height="7" rx="1.8"/>'),
+    sliders: s('<path d="M5 3v18M12 3v18M19 3v18"/><rect x="3" y="13" width="4" height="3" rx="1" fill="currentColor"/><rect x="10" y="6" width="4" height="3" rx="1" fill="currentColor"/><rect x="17" y="15" width="4" height="3" rx="1" fill="currentColor"/>'),
+    audio: s('<path d="M4 9h4l5-4v14l-5-4H4z" fill="currentColor"/><path d="M16.5 8.5a5 5 0 0 1 0 7M19.5 6a8.5 8.5 0 0 1 0 12"/>'),
     spark: '<svg viewBox="0 0 100 100"><path d="M50 2C52.6 30 70 47.4 98 50 70 52.6 52.6 70 50 98 47.4 70 30 52.6 2 50 30 47.4 47.4 30 50 2Z" fill="currentColor"/></svg>',
   };
 })();
