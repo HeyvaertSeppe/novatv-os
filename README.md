@@ -62,6 +62,10 @@ a Wayland kiosk compositor.
   Joyn, RTL+, WOW, MagentaTV, waipu.tv, Zattoo, DAZN), France (france.tv, TF1+, M6+, CANAL+, Molotov,
   ARTE, RMC+, ADN) and international (Netflix, Prime Video, Disney+, HBO Max, Apple TV, Spotify, Twitch…).
   The Home Screen starts with Netflix, Prime Video and YouTube; add more with the **+ Add Apps** tile.
+- **Stremio, the real app**: the native Stremio desktop app (with its own streaming server and the
+  mpv player) is built into the image and sits on the Home Screen. It is not the website. The remote
+  works in it (arrows, OK, Back = Stremio's back, Play/Pause), the phone remote's **Mouse** mode and
+  keyboard work too, and **Home** closes Stremio and returns to NovaTV.
 - **Edit the Home Screen on the TV**: press **Play/Pause** on a tile to move it or take it off.
 - **Any website as an app**: *Add Apps → + Website* on the TV, or *Apps → Add App* on the phone.
   The tile shows the name, or a logo you pick from your phone and position/resize.

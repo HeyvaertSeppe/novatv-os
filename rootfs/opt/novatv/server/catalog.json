@@ -48,6 +48,23 @@
   "icon": "/shared/logos/youtube.png"
  },
  {
+  "id": "stremio",
+  "name": "Stremio",
+  "type": "native",
+  "command": "/opt/stremio/stremio",
+  "regions": [
+   "INT"
+  ],
+  "tagline": "Films, series and live TV with add-ons. The real Stremio app.",
+  "c1": "#7b5bf5",
+  "c2": "#140c33",
+  "label": "Stremio",
+  "fg": "#ffffff",
+  "ua": "default",
+  "back": "smart",
+  "icon": "/shared/logos/stremio.png"
+ },
+ {
   "id": "disney",
   "name": "Disney+",
   "url": "https://www.disneyplus.com",

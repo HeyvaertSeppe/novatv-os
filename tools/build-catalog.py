@@ -13,7 +13,7 @@ ROOT = Path(__file__).resolve().parent.parent
 SRC = ROOT / "tools" / "catalog-src.json"
 LOGOS = ROOT / "rootfs" / "opt" / "novatv" / "web" / "shared" / "logos"
 OUT = ROOT / "rootfs" / "opt" / "novatv" / "server"
-DEFAULT_HOME = ["netflix", "prime", "youtube"]
+DEFAULT_HOME = ["netflix", "prime", "youtube", "stremio"]
 SYSTEM = [
     {"id": "library", "name": "Add Apps", "type": "system", "label": "Add Apps", "icon": "plus",
      "c1": "#4b4b57", "c2": "#1c1c22", "fg": "#ffffff", "tagline": "Choose more streaming services for your Home Screen"},

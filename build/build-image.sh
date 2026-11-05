@@ -16,7 +16,7 @@ HERE="$(cd "$(dirname "$0")/.." && pwd)"
 WORK="${WORK:-$HERE/build/work}"
 OUT="${OUT:-$HERE/out}"
 BASE_URL="${BASE_URL:-https://downloads.raspberrypi.com/raspios_lite_arm64_latest}"
-EXTRA_MB="${EXTRA_MB:-3500}"
+EXTRA_MB="${EXTRA_MB:-5000}"
 DATE="$(date +%Y%m%d)"
 NAME="novatv-os-$DATE"
 

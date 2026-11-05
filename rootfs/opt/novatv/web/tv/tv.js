@@ -213,7 +213,7 @@ function onMessage(m) {
     case 'paircode': refreshInfo().then(refreshQR); break;
     case 'remote_connected': onRemoteConnected(); break;
     case 'launching': playLaunch(m.id); break;
-    case 'home': goHome(); break;
+    case 'home': goHome(); closeLaunch(); break;
     case 'open': if (m.screen === 'settings') openSettings(); else if (m.screen === 'library') openLibrary(); break;
     case 'key': input(m.k); break;
     case 'display': { const { t, ...d } = m; S.display = d; closeAlertIf('display'); refreshAudioViews(); break; }
@@ -439,7 +439,7 @@ tick();
 
 setInterval(() => {
   const mins = +S.settings.screensaver_minutes || 0;
-  if (!S.saver && mins > 0 && ['home', 'settings'].includes(S.screen) && document.visibilityState === 'visible' &&
+  if (!S.saver && mins > 0 && ['home', 'settings'].includes(S.screen) && document.visibilityState === 'visible' && !S.info.active_app &&
       $('#alert').classList.contains('hidden') && Date.now() - S.lastInput > mins * 60000) showSaver();
 }, 5000);
 

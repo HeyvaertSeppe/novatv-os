@@ -35,6 +35,12 @@ apt-get install -y --no-install-recommends "${PKGS[@]}"
 # Raspberry Pi Bluetooth firmware loader (present on Raspberry Pi OS)
 apt-get install -y --no-install-recommends pi-bluetooth 2>/dev/null || true
 
+# Stremio: the native desktop app, compiled for the Pi (skip with NOVATV_SKIP_STREMIO=1)
+if [ "${NOVATV_SKIP_STREMIO:-0}" != 1 ]; then
+  log "Building the Stremio app"
+  bash "$SRC/build/install-stremio.sh" || echo "warning: Stremio could not be built; NovaTV works without it"
+fi
+
 # Chromium looks for Widevine next to its binary; Raspberry Pi installs it in /opt/WidevineCdm
 if [ -d /opt/WidevineCdm ] && [ -d /usr/lib/chromium ] && [ ! -e /usr/lib/chromium/WidevineCdm ]; then
   ln -s /opt/WidevineCdm /usr/lib/chromium/WidevineCdm

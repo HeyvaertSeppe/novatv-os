@@ -562,6 +562,103 @@ class Browser:
                 pass
 
 
+# --------------------------------------------------------------------------- native apps
+
+class NativeApps:
+    """Runs native Linux apps (e.g. Stremio) on top of the launcher, in the TV's Wayland session.
+
+    The remote reaches them through Wayland's virtual keyboard/pointer (wtype, wlrctl).
+    Only commands from the built-in catalog are ever started.
+    """
+    KEYSYMS = {"up": "Up", "down": "Down", "left": "Left", "right": "Right", "select": "Return",
+               "enter": "Return", "escape": "Escape", "backspace": "BackSpace", "space": "space",
+               "tab": "Tab", "pageup": "Prior", "pagedown": "Next", "f": "f",
+               **{str(d): str(d) for d in range(10)}}
+
+    def __init__(self, server):
+        self.srv = server
+        self.proc = None
+        self.app_id = None
+
+    @property
+    def running(self):
+        return self.app_id is not None
+
+    @staticmethod
+    def env():
+        e = dict(os.environ)
+        e.setdefault("XDG_RUNTIME_DIR", f"/run/user/{os.getuid()}")
+        if not e.get("WAYLAND_DISPLAY"):
+            import glob
+            socks = sorted(x for x in glob.glob(os.path.join(e["XDG_RUNTIME_DIR"], "wayland-*")) if not x.endswith(".lock"))
+            if socks:
+                e["WAYLAND_DISPLAY"] = os.path.basename(socks[0])
+        e.update(QT_QPA_PLATFORM="wayland", QT_WAYLAND_DISABLE_WINDOWDECORATION="1", HOME=str(Path.home()))
+        return e
+
+    async def launch(self, app_id, command):
+        if self.app_id == app_id:
+            return
+        await self.stop()
+        argv = command.split()
+        self.app_id = app_id
+        if DRY_RUN:
+            log.info("dry-run: start native app %s", argv)
+            return
+        logf = open(STATE_DIR / f"{app_id}.log", "ab")
+        self.proc = await asyncio.create_subprocess_exec(
+            *argv, cwd=os.path.dirname(argv[0]), env=self.env(), stdin=asyncio.subprocess.DEVNULL,
+            stdout=logf, stderr=logf, start_new_session=True)
+        asyncio.create_task(self._watch(self.proc))
+
+    async def _watch(self, proc):
+        await proc.wait()
+        if self.proc is proc:   # the app was closed from inside: back to the home screen
+            self.proc = self.app_id = None
+            await self.srv.broadcast_state()
+            await self.srv.broadcast({"t": "home"}, role="tv")
+
+    async def stop(self):
+        proc, self.proc, self.app_id = self.proc, None, None
+        if not proc or proc.returncode is not None:
+            return
+        import signal
+        try:
+            os.killpg(proc.pid, signal.SIGTERM)
+            await asyncio.wait_for(proc.wait(), 4)
+        except (ProcessLookupError, asyncio.TimeoutError):
+            try:
+                os.killpg(proc.pid, signal.SIGKILL)
+            except ProcessLookupError:
+                pass
+
+    async def _run(self, *cmd):
+        if DRY_RUN:
+            log.info("dry-run: %s", " ".join(cmd))
+            return
+        p = await asyncio.create_subprocess_exec(*cmd, env=self.env(), stdout=asyncio.subprocess.DEVNULL,
+                                                 stderr=asyncio.subprocess.DEVNULL)
+        await p.wait()
+
+    async def key(self, name):
+        ks = self.KEYSYMS.get(name)
+        if ks:
+            await self._run("wtype", "-k", ks)
+
+    async def text(self, t):
+        if t:
+            await self._run("wtype", "--", t)
+
+    async def pointer(self, dx, dy):
+        await self._run("wlrctl", "pointer", "move", str(int(dx)), str(int(dy)))
+
+    async def click(self):
+        await self._run("wlrctl", "pointer", "click", "left")
+
+    async def scroll(self, dx, dy):
+        await self._run("wlrctl", "pointer", "scroll", f"{dy / 60:.2f}", f"{dx / 60:.2f}")
+
+
 # --------------------------------------------------------------------------- server
 
 class Server:
@@ -573,6 +670,7 @@ class Server:
         self.fail = {}      # ip -> (count, until)
         self.audio = Audio(self)
         self.bt = Bluetooth(self)
+        self.native = NativeApps(self)
 
     # ---- auth helpers
     @staticmethod
@@ -614,11 +712,14 @@ class Server:
         base = f"http://{host}" + ("" if PORT == 80 else f":{PORT}")
         return base, f"{base}/pair?code={self.state.settings['pair_code']}"
 
+    def current_app(self):
+        return self.native.app_id or self.browser.active_app
+
     def info(self, local):
         base, pair = self.urls()
         d = {
             "version": VERSION, "ip": self.ip, "url": base, "hostname": socket.gethostname(),
-            "browser": self.browser.ok, "active_app": self.browser.active_app,
+            "browser": self.browser.ok, "active_app": self.current_app(),
             "volume": self.audio.volume, "remotes": sum(1 for r in self.clients.values() if r == "remote"),
             "settings": self.state.public_settings(),
         }
@@ -640,7 +741,7 @@ class Server:
                 await self.send(ws, msg)
 
     async def broadcast_state(self):
-        await self.broadcast({"t": "state", "active_app": self.browser.active_app,
+        await self.broadcast({"t": "state", "active_app": self.current_app(),
                               "volume": self.audio.volume, "ip": self.ip,
                               "remotes": sum(1 for r in self.clients.values() if r == "remote")})
 
@@ -658,6 +759,11 @@ class Server:
                 await self.browser.go_home()
             await self.broadcast({"t": "open", "screen": app_id}, role="tv")
             return
+        if app.get("type") == "native":
+            await self.launch_native(app)
+            return
+        if self.native.running:
+            await self.native.stop()
         if not self.browser.ok:
             await self.toast("Browser is starting, try again in a moment")
             return
@@ -667,7 +773,25 @@ class Server:
         await self.browser.launch(app)
         await self.broadcast_state()
 
+    async def launch_native(self, app):
+        entry = next((a for a in self.state.catalog() if a["id"] == app["id"] and a.get("type") == "native"), None)
+        command = entry and entry.get("command")
+        if not command or (not DRY_RUN and not os.path.exists(command.split()[0])):
+            await self.toast(f"{app['name']} is not installed on this NovaTV")
+            return
+        if self.browser.ok and self.browser.active != self.browser.launcher:
+            await self.browser.go_home()
+        await self.broadcast({"t": "launching", "id": app["id"]}, role="tv")
+        await asyncio.sleep(0.42)
+        await self.native.launch(app["id"], command)
+        await self.broadcast_state()
+
     async def home(self):
+        if self.native.running:
+            await self.native.stop()
+            await self.broadcast_state()
+            await self.broadcast({"t": "home"}, role="tv")
+            return
         if self.browser.ok and self.browser.active != self.browser.launcher:
             await self.browser.go_home()
             await self.broadcast({"t": "home", "from": None}, role="tv")
@@ -676,6 +800,8 @@ class Server:
 
     async def remote_input(self, m):
         t = m.get("t")
+        if self.native.running and await self.native_input(m):
+            return
         b = self.browser
         on_launcher = not b.ok or b.active == b.launcher
         if t == "key":
@@ -715,6 +841,32 @@ class Server:
             await b.pointer_click()
         elif t == "scroll" and b.ok:
             await b.pointer_scroll(float(m.get("dx", 0)), float(m.get("dy", 0)))
+
+    async def native_input(self, m):
+        """Remote input while a native app (Stremio) is on screen. Returns True when handled."""
+        t, n = m.get("t"), self.native
+        if t == "key":
+            k = m.get("k")
+            if k in ("home", "volup", "voldown", "mute", "standby"):
+                return False            # handled as usual
+            if k == "back":
+                await n.key("escape")
+            elif k == "playpause":
+                await n.key("space")
+            else:
+                await n.key(k)
+            return True
+        if t == "text":
+            await n.text(str(m.get("text", ""))[:500])
+        elif t == "pointer":
+            await n.pointer(float(m.get("dx", 0)), float(m.get("dy", 0)))
+        elif t == "click":
+            await n.click()
+        elif t == "scroll":
+            await n.scroll(float(m.get("dx", 0)), float(m.get("dy", 0)))
+        else:
+            return False
+        return True
 
     # ---- HTTP handlers
     async def h_root(self, req):
@@ -775,7 +927,7 @@ class Server:
                 a[k] = str(body[k])[:500]
         if not a.get("name"):
             raise web.HTTPBadRequest(text="name required")
-        if a.get("type") != "system":
+        if a.get("type") not in ("system", "native"):
             url = a.get("url", "").strip()
             if not re.match(r"^https?://", url):
                 url = "https://" + url
