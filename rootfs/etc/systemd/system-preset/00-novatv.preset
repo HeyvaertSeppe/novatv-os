@@ -1,0 +1,15 @@
+# NovaTV: on the first boot systemd turns on units from the default preset list. These must
+# stay off: tty1 shows the NovaTV interface, NetworkManager manages the network, and nothing
+# should wait for the network or do extra work while the TV starts.
+disable getty@.service
+disable systemd-networkd.service
+disable systemd-networkd-wait-online.service
+disable systemd-network-generator.service
+disable systemd-resolved.service
+disable systemd-homed.service
+disable systemd-homed-activate.service
+disable systemd-sysext.service
+disable systemd-confext.service
+disable systemd-boot-update.service
+disable NetworkManager-wait-online.service
+disable regenerate_ssh_host_keys.service

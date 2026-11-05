@@ -1,0 +1,3 @@
+# The TV remote (HDMI-CEC) is read by NovaTV's own bridge (novatv-cec). Make sure the
+# kernel's CEC key device is never used as a keyboard too, or every press arrives twice.
+SUBSYSTEM=="input", KERNEL=="event*", ATTRS{name}=="vc4-hdmi*", ENV{LIBINPUT_IGNORE_DEVICE}="1"

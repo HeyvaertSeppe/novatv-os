@@ -1282,6 +1282,17 @@ class Server:
                 pass
         return web.json_response({**status, "enabled": s["cec_enabled"], "autoswitch": s["cec_autoswitch"]})
 
+    async def h_ui_ready(self, req):
+        """The launcher has drawn its first frame: the compositor may now replace the boot logo."""
+        if not self.is_local(req):
+            raise web.HTTPForbidden()
+        rt = os.environ.get("XDG_RUNTIME_DIR") or f"/run/user/{os.getuid()}"
+        try:
+            Path(rt, "novatv-ready").touch()
+        except OSError:
+            pass
+        return web.json_response({"ok": True})
+
     # ---- cooling: CPU temperature and the Pi 5 fan
     FAN_PROFILES = ("quiet", "balanced", "cool", "max")
 
@@ -1686,6 +1697,7 @@ class Server:
         r.add_post("/api/audio/preset", self.h_preset)
         r.add_post("/api/bt/{action}", self.h_bt)
         r.add_get("/api/cooling", self.h_cooling)
+        r.add_post("/api/ui-ready", self.h_ui_ready)
         r.add_post("/api/cooling", self.h_cooling)
         r.add_get("/api/countries", self.h_countries)
         r.add_get("/api/layouts", self.h_layouts)

@@ -89,6 +89,10 @@ def set_mode(spec):
             print("mode not supported by this TV", file=sys.stderr)
             return 3
         m = min(cands, key=lambda m: abs(m["r"] - r))
+    cur = next((c for c in out["modes"] if c["current"]), None)
+    if (cur and cur["w"] == m["w"] and cur["h"] == m["h"] and round(cur["r"]) == round(m["r"])
+            and abs(float(out.get("scale", 1)) - scale_for(m["h"])) < 0.01):
+        return 0   # already showing this mode: no switch, no black screen
     p = randr("--output", out["name"], "--mode", f"{m['w']}x{m['h']}@{m['r']:.6f}Hz", "--scale", str(scale_for(m["h"])))
     if p.returncode:
         print(p.stderr.strip(), file=sys.stderr)

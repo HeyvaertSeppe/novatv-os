@@ -1,0 +1,116 @@
+--- a/output.c
++++ b/output.c
+@@ -13,6 +13,7 @@
+ 
+ #include <assert.h>
+ #include <stdlib.h>
++#include <time.h>
+ #include <unistd.h>
+ #include <wayland-server-core.h>
+ #include <wlr/backend.h>
+@@ -132,6 +133,49 @@
+ 	output_layout_remove(output);
+ }
+ 
++/* NovaTV: keep showing the boot splash until the interface has drawn its first frame.
++ * CAGE_HOLD_UNTIL names a file that NovaTV creates once its page is painted; until then
++ * (or for at most 25 seconds) nothing is put on screen, so the TV goes straight from the
++ * boot logo to the interface without a black or grey screen in between. */
++#define NOVATV_HOLD_MAX_SEC 25
++static bool novatv_hold_done = false;
++static struct timespec novatv_hold_start = {0};
++static struct wl_event_source *novatv_hold_timer = NULL;
++
++static bool
++novatv_holding(void)
++{
++	if (novatv_hold_done) {
++		return false;
++	}
++	const char *file = getenv("CAGE_HOLD_UNTIL");
++	struct timespec now = {0};
++	clock_gettime(CLOCK_MONOTONIC, &now);
++	if (novatv_hold_start.tv_sec == 0) {
++		novatv_hold_start = now;
++	}
++	if (!file || !*file || access(file, F_OK) == 0 || now.tv_sec - novatv_hold_start.tv_sec >= NOVATV_HOLD_MAX_SEC) {
++		novatv_hold_done = true;
++		wlr_log(WLR_INFO, "NovaTV: showing the interface");
++		return false;
++	}
++	return true;
++}
++
++static int
++novatv_hold_tick(void *data)
++{
++	struct cg_server *server = data;
++	struct cg_output *output;
++	wl_list_for_each (output, &server->outputs, link) {
++		wlr_output_schedule_frame(output->wlr_output);
++	}
++	if (!novatv_hold_done) {
++		wl_event_source_timer_update(novatv_hold_timer, 100);
++	}
++	return 0;
++}
++
+ static void
+ handle_output_frame(struct wl_listener *listener, void *data)
+ {
+@@ -141,6 +185,14 @@
+ 		return;
+ 	}
+ 
++	if (novatv_holding()) {
++		/* let the apps keep drawing, but don't show anything yet */
++		struct timespec now = {0};
++		clock_gettime(CLOCK_MONOTONIC, &now);
++		wlr_scene_output_send_frame_done(output->scene_output, &now);
++		return;
++	}
++
+ 	wlr_scene_output_commit(output->scene_output, NULL);
+ 
+ 	struct timespec now = {0};
+@@ -283,6 +335,11 @@
+ 	wlr_output_state_set_enabled(&state, true);
+ 	if (!wl_list_empty(&wlr_output->modes)) {
+ 		struct wlr_output_mode *preferred_mode = wlr_output_preferred_mode(wlr_output);
++		/* NovaTV: keep the mode that is already on screen (set by the kernel from video= on
++		 * the command line, and used by the boot splash), so the TV doesn't re-sync. */
++		if (getenv("CAGE_KEEP_MODE") && wlr_output->enabled && wlr_output->current_mode) {
++			preferred_mode = wlr_output->current_mode;
++		}
+ 		if (preferred_mode) {
+ 			wlr_output_state_set_mode(&state, preferred_mode);
+ 		}
+@@ -311,9 +368,26 @@
+ 			wlr_output->scale);
+ 	}
+ 
+-	wlr_log(WLR_DEBUG, "Enabling new output %s", wlr_output->name);
+-	if (wlr_output_commit_state(wlr_output, &state)) {
++	if (getenv("CAGE_HOLD_UNTIL") && !novatv_hold_timer) {
++		novatv_hold_timer =
++			wl_event_loop_add_timer(wl_display_get_event_loop(server->wl_display), novatv_hold_tick, server);
++		if (novatv_hold_timer) {
++			wl_event_source_timer_update(novatv_hold_timer, 100);
++		}
++	}
++
++	bool already_on = getenv("CAGE_KEEP_MODE") && wlr_output->enabled && wlr_output->current_mode &&
++			  (state.committed & WLR_OUTPUT_STATE_MODE) && state.mode == wlr_output->current_mode;
++	if (already_on) {
++		/* NovaTV: the output already runs in this mode: no modeset, the splash stays up */
++		wlr_log(WLR_INFO, "NovaTV: keeping the current mode on %s", wlr_output->name);
+ 		output_layout_add_auto(output);
++		wlr_output_schedule_frame(wlr_output);
++	} else {
++		wlr_log(WLR_DEBUG, "Enabling new output %s", wlr_output->name);
++		if (wlr_output_commit_state(wlr_output, &state)) {
++			output_layout_add_auto(output);
++		}
+ 	}
+ 
+ 	view_position_all(output->server);

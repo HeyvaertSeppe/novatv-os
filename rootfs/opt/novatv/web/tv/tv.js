@@ -231,8 +231,18 @@ async function refreshInfo() {
 }
 
 /* ================================================================ startup */
-function start() {
+// The boot logo stays on screen until this page has painted the same logo; then the
+// compositor shows the page and the intro continues from there without a jump.
+const shown = (async () => {
+  try { await Promise.race([document.fonts.ready, new Promise((r) => setTimeout(r, 1500))]); } catch (e) { /* */ }
+  await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
+  try { await fetch('/api/ui-ready', { method: 'POST' }); } catch (e) { /* not on the TV */ }
+  await new Promise((r) => setTimeout(r, 150));   // compositor polls every 100 ms
+})();
+
+async function start() {
   S.started = true;
+  await shown;
   const intro = $('#intro');
   const played = sessionStorage.getItem('intro');
   const next = () => {

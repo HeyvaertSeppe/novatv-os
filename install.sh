@@ -35,6 +35,9 @@ apt-get install -y --no-install-recommends "${PKGS[@]}"
 # Raspberry Pi Bluetooth firmware loader (present on Raspberry Pi OS)
 apt-get install -y --no-install-recommends pi-bluetooth 2>/dev/null || true
 
+# cage with NovaTV's patch: no TV re-sync and no black/grey screen between splash and interface
+bash "$SRC/build/install-cage.sh" || echo "warning: patched cage could not be built; using the packaged one"
+
 # Stremio: the native desktop app, compiled for the Pi (skip with NOVATV_SKIP_STREMIO=1)
 if [ "${NOVATV_SKIP_STREMIO:-0}" != 1 ]; then
   log "Building the Stremio app"
@@ -101,7 +104,11 @@ sed -i 's/^XKBLAYOUT=.*/XKBLAYOUT="us"/' /etc/default/keyboard 2>/dev/null || tr
 log "Enabling services"
 systemctl enable novatv-server.service novatv-ui.service novatv-report.timer novatv-cec.service \
   NetworkManager.service avahi-daemon.service bluetooth.service
+# tty1 is the TV screen: never a login prompt there (Ctrl+Alt+F2 still gives one)
 systemctl disable getty@tty1.service 2>/dev/null || true
+systemctl mask getty@tty1.service
+# SSH is off; if it's switched on, sshd-keygen creates the host keys then
+systemctl disable regenerate_ssh_host_keys.service 2>/dev/null || true
 systemctl set-default multi-user.target
 # cloud-init (Raspberry Pi Imager's customisation) is not used: NovaTV has its own setup.
 # Off, it can't recreate the "pi" user or rename the TV, and the first boot is much faster.

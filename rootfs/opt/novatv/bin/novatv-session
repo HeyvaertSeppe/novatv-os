@@ -36,4 +36,13 @@ else
   echo "display: no HDMI display driver found, letting the compositor pick"
 fi
 
-exec cage -d -s -- /opt/novatv/bin/novatv-browser
+# Keep the mode the kernel set (no TV re-sync) and keep the boot logo on screen until the
+# launcher has drawn its first frame (the server creates the "ready" file). Only the cage
+# built by NovaTV (/usr/local/bin/cage) knows these; the packaged one ignores them.
+export CAGE_KEEP_MODE=1
+export CAGE_HOLD_UNTIL="$XDG_RUNTIME_DIR/novatv-ready"
+rm -f "$CAGE_HOLD_UNTIL"
+CAGE=/usr/local/bin/cage
+[ -x "$CAGE" ] || CAGE=cage
+
+exec "$CAGE" -d -s -- /opt/novatv/bin/novatv-browser

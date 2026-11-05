@@ -75,7 +75,15 @@ def write_status(**kw):
 def find_connected():
     """Configure every CEC adapter as a playback device, return the one plugged into the TV."""
     for dev in sorted(glob.glob(DEVICES)):
-        ctl(dev, "--playback", "--osd-name", "NovaTV")
+        # --no-rc-passthrough: otherwise the kernel ALSO turns each remote button into a key
+        # press, and every press arrives twice (focus skips a key or a row)
+        try:
+            rc = subprocess.run(["cec-ctl", "-d", dev, "--playback", "--osd-name", "NovaTV", "--no-rc-passthrough"],
+                                capture_output=True, text=True, timeout=10).returncode
+        except Exception:  # noqa: BLE001
+            rc = 1
+        if rc:   # very old cec-ctl without that option
+            ctl(dev, "--playback", "--osd-name", "NovaTV")
         time.sleep(1)
         pa = phys_addr(dev)
         if pa.lower() != "f.f.f.f":

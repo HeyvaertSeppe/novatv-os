@@ -12,7 +12,10 @@ a Wayland kiosk compositor.
 - **Fast boot with a sharp boot animation** that flows straight into the home screen. The logo is
   drawn at the TV's own resolution (1080p or 4K) by the real display driver, so it's crisp without
   banding, and three small dots show it's still starting. The interface starts as its own system
-  service right after the splash, without waiting for Wi-Fi.
+  service right after the splash, without waiting for Wi-Fi. The logo stays on screen until the
+  interface has drawn its first frame, and the screen mode set at power-on is kept, so the TV
+  never re-syncs: no black or grey screens between the logo and the home screen. (NovaTV builds
+  Raspberry Pi OS's `cage` kiosk compositor with a small patch for this: `build/patches/`.)
 - **First-boot setup on the TV**, driven by a USB keyboard and mouse (or arrow keys):
   Hello → Country (sets time zone, Wi-Fi rules and keyboard layout, e.g. Belgian AZERTY)
   → Wi-Fi (pick a network, type the password) → Name your TV → Pair your phone → Done.
@@ -28,6 +31,8 @@ a Wayland kiosk compositor.
 - **Your TV's own remote** controls NovaTV through HDMI-CEC (arrows, OK, Back/Exit, Home/Menu,
   play/pause, rewind/fast-forward). Switch on CEC in the TV's settings: Anynet+ (Samsung), SimpLink
   (LG), Bravia Sync (Sony), EasyLink (Philips), VIERA Link (Panasonic). Works on either HDMI port.
+  Each button press arrives once: the kernel's own CEC-to-keyboard passthrough is switched off,
+  because NovaTV reads the remote itself.
   NovaTV switches the TV to its input when it starts, pauses playback when the TV is switched off,
   and can turn the TV off or switch it to NovaTV from *Settings → TV Remote* or the phone.
   (HDMI ARC/eARC is for sound from the TV to a soundbar. It works automatically and doesn't
