@@ -1,7 +1,13 @@
 #!/bin/bash
-# NovaTV kiosk session. Started on tty1 by autologin (see ~/.bash_profile).
+# NovaTV kiosk session, started on the TV screen (tty1) by novatv-ui.service.
 # cage is a Wayland kiosk compositor: it shows one fullscreen app, here Chromium.
-# When Chromium exits, cage exits, getty logs in again and this restarts.
+# When Chromium or cage exits, systemd starts this again within a second.
+
+LOG="$HOME/.cache/novatv-session.log"
+mkdir -p "$HOME/.cache"
+[ -f "$LOG" ] && mv -f "$LOG" "$LOG.1"
+exec >"$LOG" 2>&1
+echo "NovaTV session start $(date '+%F %T') (uptime $(cut -d' ' -f1 /proc/uptime)s)"
 
 # Keyboard layout chosen during setup (written to /etc/default/keyboard)
 if [ -r /etc/default/keyboard ]; then
@@ -10,7 +16,24 @@ if [ -r /etc/default/keyboard ]; then
   [ -n "${XKBVARIANT:-}" ] && export XKB_DEFAULT_VARIANT="$XKBVARIANT"
 fi
 export XDG_SESSION_TYPE=wayland
+export XDG_RUNTIME_DIR="${XDG_RUNTIME_DIR:-/run/user/$(id -u)}"
 export WLR_LIBINPUT_NO_DEVICES=1   # start fine with no keyboard or mouse plugged in
 export MOZ_ENABLE_WAYLAND=1
 
-exec cage -d -s -- /opt/novatv/bin/novatv-browser >"$HOME/.cache/novatv-session.log" 2>&1
+# Use the display driver's card. A Pi 5 also has a render-only GPU card (v3d), and right
+# after power-on the display driver can need a moment, so wait for its HDMI connectors.
+CARD=""
+for _ in $(seq 1 60); do
+  for c in /sys/class/drm/card[0-9]; do
+    if compgen -G "$c-HDMI-A-*" >/dev/null; then CARD="/dev/dri/${c##*/}"; break 2; fi
+  done
+  sleep 0.25
+done
+if [ -n "$CARD" ]; then
+  export WLR_DRM_DEVICES="$CARD"
+  echo "display: $CARD ($(cat /sys/class/drm/${CARD##*/}-HDMI-A-*/status 2>/dev/null | tr '\n' ' '))"
+else
+  echo "display: no HDMI display driver found, letting the compositor pick"
+fi
+
+exec cage -d -s -- /opt/novatv/bin/novatv-browser

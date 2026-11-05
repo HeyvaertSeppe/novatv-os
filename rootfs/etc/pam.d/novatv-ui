@@ -1,0 +1,7 @@
+# Session for the NovaTV interface (novatv-ui.service): no password, a normal logind
+# session on seat0/tty1 so the compositor can use the screen, keyboard and mouse.
+auth      required  pam_permit.so
+@include common-account
+session   required  pam_loginuid.so
+session   required  pam_limits.so
+@include common-session

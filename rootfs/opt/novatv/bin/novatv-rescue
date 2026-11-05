@@ -1,0 +1,40 @@
+#!/bin/bash
+# Runs (as root) when the NovaTV interface failed to start several times in a row.
+# Saves a report on the SD card, explains on the TV what happened, then keeps retrying.
+
+/opt/novatv/bin/novatv-report rescue || true
+plymouth quit 2>/dev/null || true
+
+# back to a text screen on tty1 (the splash may have left it in graphics mode)
+python3 - <<'PY' 2>/dev/null || true
+import fcntl, os
+fd = os.open("/dev/tty1", os.O_RDWR)
+fcntl.ioctl(fd, 0x4B3A, 0)   # KDSETMODE KD_TEXT
+PY
+chvt 1 2>/dev/null || true
+for f in /usr/share/consolefonts/Lat15-TerminusBold32x16.psf.gz /usr/share/consolefonts/Uni3-TerminusBold32x16.psf.gz; do
+  [ -f "$f" ] && setfont -C /dev/tty1 "$f" 2>/dev/null && break
+done
+
+n=0
+while true; do
+  n=$((n + 1))
+  IP=$(hostname -I 2>/dev/null | awk '{print $1}')
+  {
+    printf '\033c\033[?25l\n\n'
+    echo "   NovaTV could not start its interface."
+    echo
+    echo "   It tries again automatically (attempt $n)."
+    echo
+    echo "   A report was saved on the SD card, in the folder novatv-logs."
+    echo "   Put the card in a computer to read it, or share it to get help."
+    [ -n "$IP" ] && echo && echo "   Network address: $IP"
+    echo
+    echo "   Press Ctrl+Alt+F2 for a login prompt (user tv, password novatv)."
+  } > /dev/tty1
+  sleep 20
+  systemctl reset-failed novatv-ui.service
+  systemctl start novatv-ui.service
+  sleep 40
+  systemctl is-active --quiet novatv-ui.service && exit 0
+done

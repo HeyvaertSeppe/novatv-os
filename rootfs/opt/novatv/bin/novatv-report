@@ -1,0 +1,34 @@
+#!/bin/bash
+# Writes a short diagnostic report to the SD card's boot partition (novatv-logs/), so a
+# problem can be read on any computer. "boot" runs 90 s after every start, "rescue" when
+# the interface fails. Older reports are kept: last 3 of each kind.
+KIND="${1:-boot}"
+DIR=/boot/firmware/novatv-logs
+[ -d /boot/firmware ] || exit 0
+mkdir -p "$DIR" || exit 0
+for i in 2 1; do [ -f "$DIR/$KIND-$i.txt" ] && mv -f "$DIR/$KIND-$i.txt" "$DIR/$KIND-$((i + 1)).txt"; done
+[ -f "$DIR/$KIND.txt" ] && mv -f "$DIR/$KIND.txt" "$DIR/$KIND-1.txt"
+OUT="$DIR/$KIND.txt"
+sec() { echo; echo "===== $1"; }
+{
+  echo "NovaTV $KIND report, $(date '+%F %T'), uptime $(cut -d' ' -f1 /proc/uptime)s"
+  echo "version: $(cat /opt/novatv/VERSION 2>/dev/null)"
+  sec "boot time";        systemd-analyze 2>&1 | head -3
+  sec "interface start";  systemd-analyze critical-chain novatv-ui.service 2>&1 | head -25
+  sec "slowest units";    systemd-analyze blame 2>&1 | head -20
+  sec "failed units";     systemctl --failed --no-legend 2>&1
+  sec "interface";        systemctl status novatv-ui.service --no-pager -n 0 2>&1 | head -12
+  sec "server";           systemctl status novatv-server.service --no-pager -n 0 2>&1 | head -8
+  sec "display";          for s in /sys/class/drm/card*-*/status; do echo "$s: $(cat "$s")"; done 2>/dev/null
+                          grep -h . /sys/class/drm/card*-HDMI-A-*/modes 2>/dev/null | head -5
+  sec "temperature/fan";  vcgencmd measure_temp 2>&1; vcgencmd get_throttled 2>&1
+                          for d in /sys/devices/platform/cooling_fan/hwmon/hwmon*; do echo "fan rpm $(cat $d/fan1_input 2>/dev/null) pwm $(cat $d/pwm1 2>/dev/null)/255"; done
+  sec "cmdline";          cat /proc/cmdline
+  sec "session log";      tail -n 80 /home/tv/.cache/novatv-session.log 2>&1
+  sec "previous session log"; tail -n 40 /home/tv/.cache/novatv-session.log.1 2>&1
+  sec "interface journal"; journalctl -b -u novatv-ui.service --no-pager -n 60 2>&1
+  sec "server journal";   journalctl -b -u novatv-server.service --no-pager -n 40 2>&1
+  sec "warnings";         journalctl -b -p warning --no-pager -n 80 2>&1
+  sec "kernel display";   dmesg 2>/dev/null | grep -iE "vc4|drm|hdmi|plymouth|fan" | tail -n 30
+} > "$OUT" 2>&1
+sync

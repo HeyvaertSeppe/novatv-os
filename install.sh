@@ -81,13 +81,11 @@ chmod 440 /etc/sudoers.d/novatv
 sed -i "s/@UID@/$TV_UID/" /etc/systemd/system/novatv-server.service
 install -d -o tv -g tv -m 755 /var/lib/novatv
 
-# kiosk session on tty1
-cat > "$TV_HOME/.bash_profile" <<'EOF'
-# Start the NovaTV interface on the TV screen (tty1)
-if [ "$(tty)" = "/dev/tty1" ] && [ -z "${WAYLAND_DISPLAY:-}" ]; then
-  exec /opt/novatv/bin/novatv-session
+# the interface runs as a system service on tty1 (novatv-ui.service), not from a login shell
+if [ -f "$TV_HOME/.bash_profile" ] && grep -q novatv-session "$TV_HOME/.bash_profile"; then
+  rm -f "$TV_HOME/.bash_profile"
 fi
-EOF
+rm -rf /etc/systemd/system/getty@tty1.service.d
 touch "$TV_HOME/.hushlogin"
 mkdir -p "$TV_HOME/.cache" "$TV_HOME/.config"
 chown -R tv:tv "$TV_HOME"
@@ -101,8 +99,13 @@ sed -i 's/^XKBLAYOUT=.*/XKBLAYOUT="us"/' /etc/default/keyboard 2>/dev/null || tr
 
 # --------------------------------------------------------------------------- services
 log "Enabling services"
-systemctl enable novatv-server.service novatv-cec.service NetworkManager.service avahi-daemon.service bluetooth.service
+systemctl enable novatv-server.service novatv-ui.service novatv-report.timer novatv-cec.service \
+  NetworkManager.service avahi-daemon.service bluetooth.service
+systemctl disable getty@tty1.service 2>/dev/null || true
 systemctl set-default multi-user.target
+# cloud-init (Raspberry Pi Imager's customisation) is not used: NovaTV has its own setup.
+# Off, it can't recreate the "pi" user or rename the TV, and the first boot is much faster.
+mkdir -p /etc/cloud && touch /etc/cloud/cloud-init.disabled
 # faster boot: no waiting for the network, no background apt jobs while you watch
 systemctl disable NetworkManager-wait-online.service apt-daily.timer apt-daily-upgrade.timer man-db.timer 2>/dev/null || true
 systemctl mask systemd-networkd-wait-online.service 2>/dev/null || true
@@ -130,11 +133,20 @@ if [ -f "$BOOT/config.txt" ] && ! grep -q 'NovaTV' "$BOOT/config.txt"; then
 [all]
 disable_splash=1
 disable_overscan=1
+boot_delay=0
 # If DRM video (Netflix etc.) refuses to play, uncomment the next line to use the 4K-page kernel:
 #kernel=kernel8.img
 EOF
 fi
 
+# fan curve for the Pi 5 fan connector (changeable in Settings -> Cooling & Fan)
+if [ "$BOOT" = /boot/firmware ] && [ -f "$BOOT/config.txt" ] && ! grep -q 'NovaTV fan' "$BOOT/config.txt"; then
+  NOVATV_FAN_LIVE=0 /opt/novatv/bin/novatv-helper fan balanced >/dev/null || true
+fi
+
+# the display driver goes into the initramfs, so the boot animation is drawn by it right
+# away in full colour (otherwise Plymouth falls back to a 16-bit framebuffer: banding)
+grep -qx vc4 /etc/initramfs-tools/modules 2>/dev/null || echo vc4 >> /etc/initramfs-tools/modules
 plymouth-set-default-theme novatv
 log "Rebuilding initramfs with the boot animation"
 update-initramfs -u -k all || echo "warning: initramfs update failed (boot splash may appear later in boot)"

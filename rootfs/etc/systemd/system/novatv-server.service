@@ -1,7 +1,8 @@
 [Unit]
 Description=NovaTV server (launcher, phone remote, app control)
-After=network.target NetworkManager.service
+After=local-fs.target dbus.socket
 Wants=NetworkManager.service
+# no network wait: the home screen must not wait for Wi-Fi
 
 [Service]
 Type=simple

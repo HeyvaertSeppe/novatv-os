@@ -31,8 +31,11 @@ try:
 except ImportError:  # QR codes are generated in the browser as a fallback
     qrcode = None
 
-VERSION = "1.0.0"
 HOME = Path(os.environ.get("NOVATV_HOME", "/opt/novatv"))
+try:
+    VERSION = (HOME / "VERSION").read_text().strip() or "1.4.0"
+except OSError:
+    VERSION = "1.4.0"
 STATE_DIR = Path(os.environ.get("NOVATV_STATE", "/var/lib/novatv"))
 PORT = int(os.environ.get("NOVATV_PORT", "80"))
 CDP_HOST = os.environ.get("NOVATV_CDP", "127.0.0.1:9222")
@@ -170,6 +173,7 @@ class State:
             "cec_enabled": s.get("cec_enabled", True),
             "cec_autoswitch": s.get("cec_autoswitch", True),
             "keep_background": s.get("keep_background", 1),
+            "fan_profile": s.get("fan_profile", "balanced"),
             "pair_code": s.get("pair_code") or f"{secrets.randbelow(10**6):06d}",
             "token": s.get("token") or secrets.token_urlsafe(32),
         }
@@ -1278,6 +1282,62 @@ class Server:
                 pass
         return web.json_response({**status, "enabled": s["cec_enabled"], "autoswitch": s["cec_autoswitch"]})
 
+    # ---- cooling: CPU temperature and the Pi 5 fan
+    FAN_PROFILES = ("quiet", "balanced", "cool", "max")
+
+    @staticmethod
+    def _read(path, default=None):
+        try:
+            return Path(path).read_text().strip()
+        except OSError:
+            return default
+
+    async def cooling_status(self):
+        if DRY_RUN:
+            return {"temp": 52.3, "fan": True, "rpm": 2860, "pwm": 30, "profile": self.state.settings["fan_profile"],
+                    "throttled": {"now": [], "since_boot": []}, "pending": getattr(self, "_fan_pending", False)}
+        temp = self._read("/sys/class/thermal/thermal_zone0/temp")
+        rpm = pwm = None
+        for d in sorted(Path("/sys/devices/platform/cooling_fan/hwmon").glob("hwmon*")):
+            rpm = self._read(d / "fan1_input")
+            pwm = self._read(d / "pwm1")
+            break
+        flags = {"now": [], "since_boot": []}
+        rc, out = await arun(["vcgencmd", "get_throttled"], 5)
+        try:
+            v = int(out.strip().split("=")[1], 16)
+            names = {0: "undervoltage", 1: "freq_capped", 2: "throttled", 3: "temp_limit"}
+            flags["now"] = [n for b, n in names.items() if v & (1 << b)]
+            flags["since_boot"] = [n for b, n in names.items() if v & (1 << (b + 16))]
+        except (IndexError, ValueError, AttributeError):
+            pass
+        return {
+            "temp": round(int(temp) / 1000, 1) if temp and temp.lstrip("-").isdigit() else None,
+            "fan": rpm is not None,
+            "rpm": int(rpm) if rpm and rpm.isdigit() else 0,
+            "pwm": round(int(pwm) * 100 / 255) if pwm and pwm.isdigit() else 0,
+            "profile": self.state.settings["fan_profile"],
+            "throttled": flags,
+            "pending": getattr(self, "_fan_pending", False),
+        }
+
+    async def h_cooling(self, req):
+        self.require_auth(req)
+        if req.method == "POST":
+            body = await req.json()
+            prof = body.get("profile")
+            if prof not in self.FAN_PROFILES:
+                raise web.HTTPBadRequest()
+            self.state.settings["fan_profile"] = prof
+            self.state.save()
+            if DRY_RUN:
+                self._fan_pending = True
+            else:
+                rc, out = await arun(HELPER + ["fan", prof], 15)
+                self._fan_pending = rc == 0 and "live=1" not in (out or "")
+            await self.broadcast({"t": "settings", "settings": self.state.public_settings()})
+        return web.json_response(await self.cooling_status())
+
     # ---- display resolution
     def mode_label(self, w, h, r=None):
         name = {2160: "4K", 1440: "1440p", 1080: "1080p", 720: "720p", 576: "576p", 480: "480p"}.get(h, f"{w}×{h}")
@@ -1625,6 +1685,8 @@ class Server:
         r.add_post("/api/audio/eq", self.h_eq)
         r.add_post("/api/audio/preset", self.h_preset)
         r.add_post("/api/bt/{action}", self.h_bt)
+        r.add_get("/api/cooling", self.h_cooling)
+        r.add_post("/api/cooling", self.h_cooling)
         r.add_get("/api/countries", self.h_countries)
         r.add_get("/api/layouts", self.h_layouts)
         r.add_post("/api/key", self.h_key)

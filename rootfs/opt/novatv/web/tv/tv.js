@@ -244,7 +244,7 @@ function start() {
   if (played) { next(); return; }
   sessionStorage.setItem('intro', '1');
   intro.classList.add('play');
-  setTimeout(next, 2500);
+  setTimeout(next, 550);
 }
 
 /* ================================================================ home */
@@ -529,6 +529,7 @@ function closeAlert(silent) {
 /* ================================================================ settings */
 function openSettings() {
   if (!S.settings.setup_done) return;
+  api('/api/cooling').then((c) => { S.cooling = c; if (S.screen === 'settings' && S.stack.at(-1) === 'root') renderSettings(true); }).catch(() => {});
   if (!S.layouts) api('/api/layouts').then((l) => { S.layouts = l; if (S.screen === 'settings') renderSettings(true); }).catch(() => {});
   S.stack = ['root'];
   setScreen('settings');
@@ -562,6 +563,7 @@ function settingsPages() {
         { label: 'Screen Saver', value: ssLabel(s.screensaver_minutes), act: () => pushPage('saver') },
         { label: 'Apps Kept Open in Background', value: String(s.keep_background), act: () => cycle('keep_background', [0, 1, 2, 3]) },
         { heading: 'System' },
+        { label: 'Cooling & Fan', value: coolSummary(), act: () => openCooling() },
         { label: 'About', act: () => pushPage('about') },
         { label: 'Restart Interface', act: () => confirmSys('restart-ui', 'Restart Interface?', 'The home screen and browser restart. Takes a few seconds.', 'Restart Interface') },
         { label: 'Restart', act: () => confirmSys('reboot', 'Restart NovaTV?', 'Your apps and settings are kept.', 'Restart') },
@@ -651,6 +653,7 @@ function settingsPages() {
         },
       })),
     },
+    cooling: coolPage(),
     about: {
       title: 'NovaTV', icon: I.spark,
       rows: [
@@ -663,6 +666,70 @@ function settingsPages() {
       ],
     },
   };
+}
+
+/* ---------- cooling (CPU temperature + Pi 5 fan) */
+const FAN_PROFILES = [
+  ['quiet', 'Quiet', 'Fan from 55 °C'],
+  ['balanced', 'Balanced', 'Fan from 50 °C'],
+  ['cool', 'Cool', 'Fan from 40 °C'],
+  ['max', 'Always On', 'Fan always running'],
+];
+function coolSummary() {
+  const c = S.cooling;
+  if (!c || c.temp == null) return '';
+  return `${Math.round(c.temp)} °C${c.fan ? (c.rpm ? ` · ${c.rpm} RPM` : ' · fan idle') : ''}`;
+}
+function fanText(c) {
+  if (!c) return '…';
+  if (!c.fan) return 'No fan found';
+  if (c.rpm > 0) return `${c.rpm} RPM · ${c.pwm}%`;
+  if (c.pwm > 0) return 'Not spinning: is the fan plugged in?';
+  return 'Idle (cool enough)';
+}
+function coolStatus(c) {
+  if (!c) return '…';
+  const now = c.throttled.now, past = c.throttled.since_boot;
+  if (now.includes('undervoltage')) return 'Power supply too weak';
+  if (now.includes('temp_limit') || now.includes('throttled')) return 'Too hot: slowing down';
+  if (past.includes('undervoltage')) return 'OK (power dipped earlier)';
+  if (past.includes('temp_limit') || past.includes('throttled')) return 'OK (was hot earlier)';
+  return 'OK';
+}
+function coolPage() {
+  const c = S.cooling;
+  const prof = c ? c.profile : S.settings.fan_profile;
+  return {
+    title: 'Cooling & Fan', icon: I.fan,
+    sub: c && c.pending
+      ? 'The new fan profile is saved and is used from the next restart.'
+      : 'The fan on the Pi 5 fan connector (the official Active Cooler or a case fan) speeds up automatically as NovaTV gets warmer.',
+    rows: [
+      { label: 'Temperature', value: c && c.temp != null ? `${c.temp.toFixed(1)} °C` : '…', static: true },
+      { label: 'Fan', value: fanText(c), static: true },
+      { label: 'Status', value: coolStatus(c), static: true },
+      { heading: 'Fan Profile' },
+      ...FAN_PROFILES.map(([id, name, desc]) => ({ label: name, value: prof === id ? '✓' : desc, act: () => setFan(id) })),
+      ...(c && c.pending ? [{ label: 'Restart Now', act: () => confirmSys('reboot', 'Restart NovaTV?', 'Your apps and settings are kept.', 'Restart') }] : []),
+    ],
+  };
+}
+let coolT;
+function openCooling() {
+  pushPage('cooling');
+  clearInterval(coolT);
+  const tick = async () => {
+    if (S.screen !== 'settings' || S.stack.at(-1) !== 'cooling') { clearInterval(coolT); return; }
+    try { S.cooling = await api('/api/cooling'); } catch (e) { return; }
+    if (S.screen === 'settings' && S.stack.at(-1) === 'cooling') renderSettings(true);
+  };
+  tick();
+  coolT = setInterval(tick, 2000);
+}
+async function setFan(id) {
+  try { S.cooling = await api('/api/cooling', { profile: id }); } catch (e) { toast('Could not save'); return; }
+  renderSettings(true);
+  toast(S.cooling.pending ? 'Saved. Used from the next restart.' : 'Fan profile changed', true);
 }
 
 async function cycleStyle() {

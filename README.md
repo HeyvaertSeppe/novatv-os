@@ -9,7 +9,10 @@ a Wayland kiosk compositor.
 
 ## What you get
 
-- **Boot animation** that flows into the home screen.
+- **Fast boot with a sharp boot animation** that flows straight into the home screen. The logo is
+  drawn at the TV's own resolution (1080p or 4K) by the real display driver, so it's crisp without
+  banding, and three small dots show it's still starting. The interface starts as its own system
+  service right after the splash, without waiting for Wi-Fi.
 - **First-boot setup on the TV**, driven by a USB keyboard and mouse (or arrow keys):
   Hello → Country (sets time zone, Wi-Fi rules and keyboard layout, e.g. Belgian AZERTY)
   → Wi-Fi (pick a network, type the password) → Name your TV → Pair your phone → Done.
@@ -76,6 +79,10 @@ a Wayland kiosk compositor.
 - **On-screen keyboard** (Apple style) whenever you need to type: in setup, settings and inside apps
   (search, logins). Use the remote arrows and OK; Back closes it; the remote's number buttons type
   digits. You can also type on the phone remote's keyboard.
+- **Cooling & Fan** (*Settings → Cooling & Fan*): live CPU temperature, fan speed (RPM) and whether
+  the Pi is slowing down because of heat or a weak power supply. The fan on the Pi 5's FAN connector
+  (the official Active Cooler, or a case fan) follows a temperature curve: *Quiet* (from 55 °C),
+  *Balanced* (from 50 °C, default), *Cool* (from 40 °C) or *Always On*.
 - Settings on the TV: Wi-Fi, keyboard layout, screen saver, apps kept in background,
   restart, shut down, about.
 
@@ -88,7 +95,7 @@ a Wayland kiosk compositor.
    Do not apply Imager's "OS customisation": NovaTV has its own setup.
 3. Put the card in the Pi 5, connect HDMI (port 0, next to the USB-C power), plug in a USB
    keyboard and mouse, then power on.
-4. The first boot expands the SD card and takes about a minute. The setup wizard then appears.
+4. The first boot expands the SD card, so it takes a little longer. The setup wizard then appears.
 
 ### Option B: install on an existing Raspberry Pi OS Lite
 
@@ -155,6 +162,14 @@ it keeps navigation smooth even on 4K TVs.
 If DRM video never starts, edit `config.txt` on the SD card's boot partition and uncomment
 `kernel=kernel8.img` (4K-page kernel), then reboot.
 
+## If something goes wrong
+
+- If the interface can't start, NovaTV retries by itself. After several failed tries it shows a
+  short message on the TV instead of staying on the boot animation, and keeps retrying.
+- Every start writes a report to the SD card's boot partition, in the folder **`novatv-logs`**
+  (`boot.txt`; `rescue.txt` when the interface failed). Put the card in any computer to read it.
+- `Ctrl+Alt+F2` on a USB keyboard gives a login prompt (user `tv`, password `novatv`).
+
 ## Network and pairing
 
 - The phone remote is at `http://<IP>` where `<IP>` is the address your router gave the Pi.
@@ -175,11 +190,11 @@ If DRM video never starts, edit `config.txt` on the SD card's boot partition and
 | Server (Python, aiohttp): launcher, phone remote, pairing, app list, Wi-Fi, system actions | `rootfs/opt/novatv/server/` |
 | TV interface (intro, setup, home, settings) | `rootfs/opt/novatv/web/tv/` |
 | Phone remote | `rootfs/opt/novatv/web/remote/` |
-| Kiosk session: `cage` + Chromium, apps open as tabs controlled over the DevTools port (localhost only) | `rootfs/opt/novatv/bin/` |
+| Kiosk session: `novatv-ui.service` runs `cage` + Chromium on tty1; apps open as tabs controlled over the DevTools port (localhost only) | `rootfs/opt/novatv/bin/`, `rootfs/etc/systemd/system/` |
 | HDMI-CEC bridge | `rootfs/opt/novatv/bin/novatv-cec` |
 | Audio: outputs, volume, equalizer, Bluetooth | `rootfs/opt/novatv/server/audio.py` |
 | Equalizer filter (PipeWire filter-chain) | `rootfs/etc/pipewire/pipewire.conf.d/50-novatv-eq.conf` |
-| Boot animation (Plymouth) | `rootfs/usr/share/plymouth/themes/novatv/` (frames: `tools/render-plymouth.js`) |
+| Boot animation (Plymouth) | `rootfs/usr/share/plymouth/themes/novatv/` (images and script: `tools/render-plymouth.js`) |
 | App tile banners | `rootfs/opt/novatv/web/shared/logos/` (made by `tools/make-banners.py`) |
 | Installer / image builder | `install.sh`, `build/build-image.sh` |
 

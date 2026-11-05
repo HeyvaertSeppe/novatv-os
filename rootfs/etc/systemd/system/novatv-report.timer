@@ -1,0 +1,8 @@
+[Unit]
+Description=Save a NovaTV boot report shortly after every start
+
+[Timer]
+OnBootSec=90s
+
+[Install]
+WantedBy=timers.target

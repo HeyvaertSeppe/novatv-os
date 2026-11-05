@@ -1,0 +1,7 @@
+[Unit]
+Description=Save a NovaTV boot report on the SD card (novatv-logs)
+
+[Service]
+Type=oneshot
+Nice=10
+ExecStart=/opt/novatv/bin/novatv-report boot

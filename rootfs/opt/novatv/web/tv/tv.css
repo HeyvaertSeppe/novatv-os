@@ -30,15 +30,9 @@ body.no-cursor, body.no-cursor * { cursor: none !important; }
 .logo-word { font-size: 10rem; line-height: 1; letter-spacing: -.045em; display: flex; }
 .logo-word .w1 { font-weight: 700; }
 .logo-word .w2 { font-weight: 300; margin-left: .06em; color: rgba(255,255,255,.82); }
-.logo { filter: drop-shadow(0 0 3rem rgba(140,150,255,.35)); }
 
-/* intro choreography */
-#intro.play .logo-spark { animation: spark-in 1.1s var(--spring) both; }
-#intro.play .logo-spark .flare { animation: flare 1.3s .55s var(--ease) both; }
-#intro.play .logo-word span { animation: word-in .9s var(--ease) both; }
-#intro.play .logo-word .w1 { animation-delay: .35s; }
-#intro.play .logo-word .w2 { animation-delay: .5s; }
-#intro.play .logo { animation: logo-out .6s 2.1s var(--ease) both; }
+/* intro: the boot splash ends on this same still logo, so the interface just zooms it away */
+#intro.play .logo { animation: logo-out .5s .2s var(--ease) both; }
 @keyframes spark-in {
   0% { transform: scale(.2) rotate(-90deg); opacity: 0; filter: blur(1rem); }
   60% { opacity: 1; filter: blur(0); }

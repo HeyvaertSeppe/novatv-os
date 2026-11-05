@@ -1,0 +1,7 @@
+[Unit]
+Description=NovaTV interface could not start: show help on the TV and retry
+After=novatv-ui.service
+
+[Service]
+Type=simple
+ExecStart=/opt/novatv/bin/novatv-rescue

@@ -1,0 +1,36 @@
+[Unit]
+Description=NovaTV interface on the TV (cage + Chromium)
+# Runs straight on the TV screen (tty1) as user "tv", without a login prompt or shell.
+After=systemd-user-sessions.service plymouth-quit-wait.service systemd-logind.service dbus.socket
+Wants=systemd-logind.service dbus.socket
+Conflicts=getty@tty1.service
+After=getty@tty1.service
+ConditionPathExists=/dev/tty1
+# if it keeps failing, show a message on the TV and save a report on the SD card
+StartLimitIntervalSec=180
+StartLimitBurst=6
+OnFailure=novatv-rescue.service
+
+[Service]
+Type=simple
+User=tv
+PAMName=novatv-ui
+WorkingDirectory=~
+Environment=XDG_SESSION_TYPE=wayland
+Environment=XDG_SESSION_CLASS=user
+TTYPath=/dev/tty1
+TTYReset=no
+TTYVHangup=yes
+TTYVTDisallocate=no
+StandardInput=tty-fail
+StandardOutput=journal
+StandardError=journal
+UtmpIdentifier=tty1
+UtmpMode=user
+ExecStartPre=-+/usr/bin/plymouth quit --retain-splash
+ExecStart=/opt/novatv/bin/novatv-session
+Restart=always
+RestartSec=1
+
+[Install]
+WantedBy=multi-user.target

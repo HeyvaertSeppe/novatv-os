@@ -53,7 +53,45 @@ case "${1:-}" in
     esac
     ;;
   restart-ui)
-    pkill -u tv -f -- "--user-data-dir=/home/tv/.config/novatv-browser" || systemctl restart getty@tty1.service
+    systemctl reset-failed novatv-ui.service 2>/dev/null || true
+    systemctl restart novatv-ui.service
+    ;;
+  fan)
+    # Fan curve for the Pi 5 fan connector (official Active Cooler or a case fan).
+    # Written to config.txt (used from the next start) and applied right away where the
+    # kernel allows changing the trip temperatures live.
+    case "${2:-}" in
+      quiet)    T=(55000 65000 72000 78000); SP=(75 125 175 250) ;;
+      balanced) T=(50000 60000 67500 75000); SP=(75 125 175 250) ;;
+      cool)     T=(40000 50000 60000 68000); SP=(90 140 190 255) ;;
+      max)      T=(30000 35000 40000 45000); SP=(175 200 230 255) ;;
+      *) exit 2 ;;
+    esac
+    CFG=/boot/firmware/config.txt
+    if [ -f "$CFG" ]; then
+      sed -i '/^# --- NovaTV fan ---$/,/^# --- end NovaTV fan ---$/d' "$CFG"
+      {
+        echo "# --- NovaTV fan ---"
+        echo "[all]"
+        for i in 0 1 2 3; do
+          echo "dtparam=fan_temp$i=${T[$i]},fan_temp${i}_hyst=5000,fan_temp${i}_speed=${SP[$i]}"
+        done
+        echo "# --- end NovaTV fan ---"
+      } >> "$CFG"
+    fi
+    LIVE=0
+    [ "${NOVATV_FAN_LIVE:-1}" = 1 ] || { echo "live=0"; exit 0; }
+    Z=/sys/class/thermal/thermal_zone0
+    n=0
+    for f in "$Z"/trip_point_*_type; do
+      [ -e "$f" ] || continue
+      [ "$(cat "$f")" = active ] || continue
+      idx=${f##*trip_point_}; idx=${idx%_type}
+      [ $n -lt 4 ] || break
+      if [ -w "$Z/trip_point_${idx}_temp" ] && echo "${T[$n]}" > "$Z/trip_point_${idx}_temp" 2>/dev/null; then LIVE=1; fi
+      n=$((n + 1))
+    done
+    echo "live=$LIVE"
     ;;
   reboot) systemctl reboot ;;
   poweroff) systemctl poweroff ;;
