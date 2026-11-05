@@ -1291,6 +1291,10 @@ class Server:
             Path(rt, "novatv-ready").touch()
         except OSError:
             pass
+        try:   # the interface made it on screen: next start may use the smooth handover again
+            (STATE_DIR / "ui-starting").unlink(missing_ok=True)
+        except OSError:
+            pass
         return web.json_response({"ok": True})
 
     # ---- cooling: CPU temperature and the Pi 5 fan

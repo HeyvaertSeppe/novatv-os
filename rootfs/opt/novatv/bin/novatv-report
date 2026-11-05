@@ -1,6 +1,6 @@
 #!/bin/bash
 # Writes a short diagnostic report to the SD card's boot partition (novatv-logs/), so a
-# problem can be read on any computer. "boot" runs 90 s after every start, "rescue" when
+# problem can be read on any computer. "boot" runs 45 s after every start, "rescue" when
 # the interface fails. Older reports are kept: last 3 of each kind.
 KIND="${1:-boot}"
 DIR=/boot/firmware/novatv-logs
@@ -28,6 +28,9 @@ sec() { echo; echo "===== $1"; }
   sec "previous session log"; tail -n 40 /home/tv/.cache/novatv-session.log.1 2>&1
   sec "interface journal"; journalctl -b -u novatv-ui.service --no-pager -n 60 2>&1
   sec "server journal";   journalctl -b -u novatv-server.service --no-pager -n 40 2>&1
+  sec "previous boot (last lines before it stopped)"; journalctl -b -1 --no-pager -n 60 2>&1
+  sec "previous boot warnings"; journalctl -b -1 -p warning --no-pager -n 40 2>&1
+  sec "power";            journalctl -b -k --no-pager 2>/dev/null | grep -i "voltage" | tail -n 5
   sec "warnings";         journalctl -b -p warning --no-pager -n 80 2>&1
   sec "kernel display";   dmesg 2>/dev/null | grep -iE "vc4|drm|hdmi|plymouth|fan" | tail -n 30
 } > "$OUT" 2>&1
